@@ -37,12 +37,12 @@ export default function Logo({
         {/* Gradients */}
         <defs>
           <linearGradient id="gradientPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2E7D32" />
-            <stop offset="100%" stopColor="#43A047" />
+            <stop offset="0%" stopColor="#C48B3F" />
+            <stop offset="100%" stopColor="#1C1B18" />
           </linearGradient>
           <linearGradient id="gradientSecondary" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#4CAF50" />
-            <stop offset="100%" stopColor="#81C784" />
+            <stop offset="0%" stopColor="#C48B3F" />
+            <stop offset="100%" stopColor="#EAE4DC" />
           </linearGradient>
         </defs>
 
@@ -55,19 +55,19 @@ export default function Logo({
         {/* Arched Bridge Span Negative Space at the bottom */}
         <path
           d="M32 90C45 78 75 78 88 90C78 100 60 102 32 90Z"
-          fill={theme === 'dark' ? '#1F2937' : '#F5F1E8'}
+          fill={theme === 'dark' ? '#191815' : '#F3F0EA'}
         />
 
         {/* 2. Heart Center Shape (Negative space in the pin core) */}
         <path
           d="M60 74C60 74 42 61 42 49C42 42.5 47 38 53.5 38C56.8 38 58.8 39.5 60 41C61.2 39.5 63.2 38 66.5 38C73 38 78 42.5 78 49C78 61 60 74 60 74Z"
-          fill={theme === 'dark' ? '#0F172A' : '#FFFFFF'}
+          fill={theme === 'dark' ? '#0F0E0C' : '#FFFFFF'}
         />
 
         {/* 3. Overlapping Helping Hands inside the heart */}
         <path
           d="M50 49C52 46 58 46 60 50C62 46 68 46 70 49C66 52 54 52 50 49Z"
-          stroke="#4CAF50"
+          stroke="#C48B3F"
           strokeWidth="2.5"
           strokeLinecap="round"
         />
@@ -82,7 +82,7 @@ export default function Logo({
   };
 
   // Base font style
-  const textColor = theme === 'dark' ? 'text-white' : 'text-slate-900';
+  const textColor = theme === 'dark' ? 'text-white' : 'text-[#1C1B18]';
 
   if (type === 'icon' || type === 'favicon') {
     return (
@@ -101,8 +101,8 @@ export default function Logo({
         <div className="w-8 h-8 flex items-center justify-center">
           {renderIconSvg()}
         </div>
-        <span className="font-display font-extrabold text-base tracking-tight text-slate-900">
-          Donate<span className="text-primary">Bridge</span>
+        <span className="font-serif font-bold text-base tracking-tight text-[#1C1B18]">
+          Donate<span className="text-[#C48B3F]">Bridge</span>
         </span>
       </div>
     );

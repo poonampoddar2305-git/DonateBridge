@@ -24,7 +24,7 @@ export default function DonationCard({
     submittedAt
   } = donation;
 
-  const dateFormatted = new Date(submittedAt).toLocaleDateString(undefined, {
+  const dateFormatted = new Date(submittedAt || Date.now()).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
@@ -35,12 +35,12 @@ export default function DonationCard({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
-      className="saas-card flex flex-col md:flex-row gap-6 relative"
+      className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 flex flex-col md:flex-row gap-6 relative shadow-xs hover:border-[#C48B3F] transition-all"
     >
-      <div className="shrink-0 flex md:flex-col items-center justify-between border-b md:border-b-0 md:border-r border-border pb-4 md:pb-0 md:pr-6 md:w-48">
+      <div className="shrink-0 flex md:flex-col items-center justify-between border-b md:border-b-0 md:border-r border-[#DCD4C8] pb-4 md:pb-0 md:pr-6 md:w-48">
         <div className="text-center md:w-full space-y-2">
-          <span className="font-mono text-xs text-slate-400 block tracking-wider uppercase">REFERENCE ID</span>
-          <span className="text-sm font-semibold font-mono text-ink">{id}</span>
+          <span className="font-mono text-[10px] text-[#666157] block tracking-wider uppercase">REFERENCE ID</span>
+          <span className="text-xs font-semibold font-mono text-[#1C1B18]">{id}</span>
           
           <div className="mt-2 text-center md:flex justify-center hidden">
             <StatusStamp status={status} />
@@ -48,11 +48,11 @@ export default function DonationCard({
         </div>
 
         <div className="flex md:flex-col gap-2 md:mt-4 w-full justify-center md:items-center">
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-50 border border-border text-xs text-slate-600 font-medium">
-            <Tag className="w-3.5 h-3.5 text-slate-400" />
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#F3F0EA] border border-[#DCD4C8] text-xs text-[#1C1B18] font-medium">
+            <Tag className="w-3.5 h-3.5 text-[#C48B3F]" />
             {category}
           </span>
-          <span className="text-xs font-mono text-slate-400 flex items-center gap-1.5 justify-center mt-1">
+          <span className="text-xs font-mono text-[#666157] flex items-center gap-1.5 justify-center mt-1">
             <Calendar className="w-3.5 h-3.5" />
             {dateFormatted}
           </span>
@@ -61,17 +61,17 @@ export default function DonationCard({
 
       {/* Right side info details */}
       <div className="flex-1 flex flex-col justify-between">
-        <div className="space-y-4">
+        <div className="space-y-4 text-left">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h3 className="text-display-md text-lg text-ink font-semibold">
+            <h3 className="font-serif font-bold text-lg text-[#1C1B18]">
               {donation.itemName || `${quantity}x ${category} Request`}
             </h3>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">
+            <span className="text-xs px-3 py-0.5 rounded-full bg-[#F3F0EA] border border-[#DCD4C8] text-[#C48B3F] font-semibold">
               Condition: {condition}
             </span>
           </div>
 
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs text-[#666157] leading-relaxed">
             {description || "No description provided."}
           </p>
 
@@ -83,7 +83,7 @@ export default function DonationCard({
                   key={i}
                   src={url}
                   alt={`${category} preview`}
-                  className="w-16 h-16 object-cover border border-border rounded-lg"
+                  className="w-16 h-16 object-cover border border-[#DCD4C8] rounded-2xl bg-[#F3F0EA]"
                   onError={(e) => {
                     e.target.src = 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=100';
                   }}
@@ -93,58 +93,35 @@ export default function DonationCard({
           )}
 
           {/* Location / Donor metadata */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs border-t border-border">
-            <div className="flex items-center gap-2 text-slate-500">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 text-xs border-t border-[#DCD4C8]">
+            <div className="flex items-center gap-2 text-[#666157]">
+              <MapPin className="w-4 h-4 text-[#C48B3F] shrink-0" />
               <span className="truncate">{location?.address || "Location unspecified"}</span>
             </div>
-            <div className="flex items-center gap-2 sm:justify-end text-slate-500">
-              <User className="w-4 h-4 text-slate-400" />
-              <span>Donor: <strong className="text-ink font-medium">{donorName || "Anonymous"}</strong></span>
+            <div className="flex items-center gap-2 sm:justify-end text-[#666157]">
+              <User className="w-4 h-4 text-[#666157]" />
+              <span>Donor: <strong className="text-[#1C1B18] font-bold">{donorName || "Anonymous"}</strong></span>
             </div>
           </div>
 
           {/* Match Score Breakdown panel */}
           {matchScoreDetails && (
-            <div className="mt-4 p-4 bg-slate-50 border border-border rounded-xl space-y-3">
+            <div className="mt-4 p-4 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl space-y-3">
               <div className="flex justify-between items-baseline text-xs">
-                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  Algorithm Matching Recommendation
+                <span className="font-semibold text-[#1C1B18] flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#C48B3F]" />
+                  Smart Match Recommendation
                 </span>
-                <span className="font-semibold text-primary">{matchScoreDetails.total}% Score</span>
+                <span className="font-bold text-[#C48B3F]">{matchScoreDetails.total}% Fit Score</span>
               </div>
 
-              {/* Progress bar stack */}
-              <div className="h-2 rounded-full overflow-hidden flex bg-slate-200">
-                <div style={{ width: `${matchScoreDetails.categoryFit}%` }} className="bg-primary h-full" />
-                <div style={{ width: `${matchScoreDetails.distanceScore}%` }} className="bg-sky-500 h-full" />
-                <div style={{ width: `${matchScoreDetails.quantityScore}%` }} className="bg-indigo-500 h-full" />
-                <div style={{ width: `${matchScoreDetails.urgencyScore}%` }} className="bg-emerald-500 h-full" />
-                <div style={{ width: `${matchScoreDetails.trustScore}%` }} className="bg-teal-600 h-full" />
-                <div style={{ width: `${matchScoreDetails.freshnessScore}%` }} className="bg-amber-500 h-full" />
-              </div>
-
-              {/* Legend details */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-1 text-xs text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-primary rounded-full" /> Category ({matchScoreDetails.categoryFit}%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-sky-500 rounded-full" /> Dist. ({matchScoreDetails.distanceScore}%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full" /> Quantity ({matchScoreDetails.quantityScore}%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full" /> Urgency ({matchScoreDetails.urgencyScore}%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-teal-600 rounded-full" /> Trust ({matchScoreDetails.trustScore}%)
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-amber-500 rounded-full" /> Recency ({matchScoreDetails.freshnessScore}%)
-                </span>
+              <div className="h-2 rounded-full overflow-hidden flex bg-[#DCD4C8]">
+                <div style={{ width: `${matchScoreDetails.categoryFit}%` }} className="bg-[#1C1B18] h-full" />
+                <div style={{ width: `${matchScoreDetails.distanceScore}%` }} className="bg-[#C48B3F] h-full" />
+                <div style={{ width: `${matchScoreDetails.quantityScore}%` }} className="bg-amber-600 h-full" />
+                <div style={{ width: `${matchScoreDetails.urgencyScore}%` }} className="bg-emerald-600 h-full" />
+                <div style={{ width: `${matchScoreDetails.trustScore}%` }} className="bg-teal-700 h-full" />
+                <div style={{ width: `${matchScoreDetails.freshnessScore}%` }} className="bg-stone-500 h-full" />
               </div>
             </div>
           )}
@@ -152,9 +129,9 @@ export default function DonationCard({
 
         {/* Action Panel */}
         {(onApprove || onReject || onClaim || actions || donation.rejectionReason) && (
-          <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-2 items-center justify-between">
+          <div className="mt-6 pt-4 border-t border-[#DCD4C8] flex flex-wrap gap-2 items-center justify-between">
             {donation.rejectionReason && (
-              <p className="text-xs text-red-500 italic">
+              <p className="text-xs text-rose-600 italic">
                 Moderation rejection reason: "{donation.rejectionReason}"
               </p>
             )}
@@ -163,7 +140,7 @@ export default function DonationCard({
               {onReject && (
                 <button
                   onClick={onReject}
-                  className="px-4 py-2 border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                  className="px-5 py-2 border border-rose-300 hover:bg-rose-50 text-rose-700 text-xs font-medium rounded-full transition-colors cursor-pointer"
                 >
                   Reject listing
                 </button>
@@ -171,7 +148,7 @@ export default function DonationCard({
               {onApprove && (
                 <button
                   onClick={onApprove}
-                  className="saas-btn px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-xs font-medium rounded-full transition-colors cursor-pointer shadow-xs"
                 >
                   Approve listing
                 </button>
@@ -179,7 +156,7 @@ export default function DonationCard({
               {onClaim && (
                 <button
                   onClick={onClaim}
-                  className="saas-btn px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer"
+                  className="px-5 py-2 bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-xs font-medium rounded-full transition-colors cursor-pointer shadow-xs"
                 >
                   Claim request
                 </button>

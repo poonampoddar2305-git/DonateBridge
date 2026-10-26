@@ -9,6 +9,7 @@ import DonationCard from '../components/ui/DonationCard';
 import { Button } from '../components/ui/Button';
 import { InputField } from '../components/ui/InputField';
 import LeafletMap from '../components/ui/LeafletMap';
+import AiMatchAssistant from '../components/ui/AiMatchAssistant';
 import { useToast } from '../components/ui/Toast';
 import { 
   MapPin, Box, Calendar, Heart, Download, Upload, Trash2, Award, 
@@ -21,14 +22,58 @@ import { motion, AnimatePresence } from 'framer-motion';
 const CATEGORIES = ['Clothing', 'Food', 'Books', 'Furniture', 'Electronics', 'Medical', 'Other'];
 const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
 
+const formatAadhaarInput = (val, prev = '') => {
+  const isDeleting = prev.length > val.length;
+  let raw = val;
+  if (isDeleting && prev.endsWith('-') && val === prev.slice(0, -1)) {
+    raw = val.slice(0, -1);
+  }
+  const digits = raw.replace(/\D/g, '').slice(0, 12);
+  if (!digits) return '';
+  const chunks = [];
+  for (let i = 0; i < digits.length; i += 4) {
+    chunks.push(digits.slice(i, i + 4));
+  }
+  let formatted = chunks.join('-');
+  if (!isDeleting && (digits.length === 4 || digits.length === 8) && digits.length < 12) {
+    formatted += '-';
+  }
+  return formatted;
+};
+
 export default function DonorDashboard() {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const { myDonations, addDonation, fetchMyDonations, needs, ngos } = useRealDB();
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'submit' | 'history' | 'impact'
   const [isRetracting, setIsRetracting] = useState(null);
+
+  // Donor Verification Modal & Resubmit State
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [resubmitAadhaar, setResubmitAadhaar] = useState(user?.aadhaarNumber ? formatAadhaarInput(user.aadhaarNumber) : '');
+  const [resubmitPan, setResubmitPan] = useState(user?.panNumber || '');
+  const [resubmitAadhaarDoc, setResubmitAadhaarDoc] = useState(user?.aadhaarDoc || '');
+  const [resubmitPanDoc, setResubmitPanDoc] = useState(user?.panDoc || '');
+  const [uploadingAadhaar, setUploadingAadhaar] = useState(false);
+  const [uploadingPan, setUploadingPan] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+
+  useEffect(() => {
+    if (refreshUserData) {
+      refreshUserData();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      if (user.aadhaarNumber) setResubmitAadhaar(formatAadhaarInput(user.aadhaarNumber));
+      if (user.panNumber) setResubmitPan(user.panNumber);
+      if (user.aadhaarDoc) setResubmitAadhaarDoc(user.aadhaarDoc);
+      if (user.panDoc) setResubmitPanDoc(user.panDoc);
+    }
+  }, [user]);
 
   // Form state
   const [itemName, setItemName] = useState('');
@@ -39,7 +84,7 @@ export default function DonorDashboard() {
   const [photos, setPhotos] = useState([]);
   const [addressSearch, setAddressSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [location, setLocation] = useState({ lat: 21.1458, lng: 79.0882, address: 'Nagpur, Maharashtra' });
+  const [location, setLocation] = useState({ lat: null, lng: null, address: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(null);
 
@@ -80,7 +125,7 @@ export default function DonorDashboard() {
       };
     });
 
-  // Load geolocation on mount
+  // Pull geolocation on mount if granted, but no predefined fallback
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -90,19 +135,46 @@ export default function DonorDashboard() {
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
             const data = await res.json();
-            const addr = data.display_name || 'Current Location';
+            const addr = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
             setLocation({ lat, lng, address: addr });
             setAddressSearch(addr);
           } catch {
-            setLocation({ lat, lng, address: 'Current Location' });
+            setLocation({ lat, lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}` });
           }
         },
         () => {
-          setLocation({ lat: 21.1458, lng: 79.0882, address: 'Nagpur, Maharashtra' });
+          // No predefined fallback
         }
       );
     }
   }, []);
+
+  const handlePullCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          const addr = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          setLocation({ lat, lng, address: addr });
+          setAddressSearch(addr);
+          toast.success('Live location pulled successfully.');
+        } catch {
+          setLocation({ lat, lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+          toast.success('Location coordinates pulled.');
+        }
+      },
+      () => {
+        toast.error('Unable to access location. Please search address or pick on map.');
+      }
+    );
+  };
 
   const handleAddressSearch = async () => {
     if (!addressSearch) return;
@@ -219,6 +291,16 @@ export default function DonorDashboard() {
     toast.info(`Auto-filled submit form for ${demand.ngo}'s request (${demand.qty}x needed).`);
   };
 
+  const handlePreFillFromAi = (aiData) => {
+    if (aiData.itemName) setItemName(aiData.itemName);
+    if (aiData.category) setCategory(CATEGORIES.includes(aiData.category) ? aiData.category : 'Clothing');
+    if (aiData.quantity) setQuantity(aiData.quantity);
+    if (aiData.description) setDescription(aiData.description);
+    if (aiData.targetNgoId) setTargetNgoId(aiData.targetNgoId);
+    setActiveTab('submit');
+    toast.info('Pre-filled donation submission form from AI Assistant match!');
+  };
+
   const retractDonation = async (donationId) => {
     if (!window.confirm('Are you sure you want to retract this donation?')) return;
     setIsRetracting(donationId);
@@ -233,33 +315,119 @@ export default function DonorDashboard() {
     }
   };
 
+  const handleUploadAadhaar = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAadhaar(true);
+    try {
+      const res = await authAPI.uploadFile(file);
+      setResubmitAadhaarDoc(res.data.url);
+      toast.success('Aadhaar document uploaded successfully.');
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setUploadingAadhaar(false);
+    }
+  };
+
+  const handleUploadPan = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPan(true);
+    try {
+      const res = await authAPI.uploadFile(file);
+      setResubmitPanDoc(res.data.url);
+      toast.success('PAN document uploaded successfully.');
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setUploadingPan(false);
+    }
+  };
+
+  const handleResubmitVerification = async (e) => {
+    e.preventDefault();
+    const cleanAadhaar = resubmitAadhaar.replace(/\D/g, '');
+    const cleanPan = resubmitPan.trim().toUpperCase();
+
+    if (cleanAadhaar && cleanAadhaar.length !== 12) {
+      toast.error('Aadhaar number must be exactly 12 digits (format: 1234-5678-9012).');
+      return;
+    }
+    if (cleanPan && !/^[A-Z0-9]{10}$/.test(cleanPan)) {
+      toast.error('PAN card must be a 10-character alphanumeric code (e.g. ABCDE1234F).');
+      return;
+    }
+
+    setIsResubmitting(true);
+    try {
+      await authAPI.resubmitVerification({
+        aadhaar_number: cleanAadhaar || null,
+        pan_number: cleanPan || null,
+        aadhaar_doc: resubmitAadhaarDoc || null,
+        pan_doc: resubmitPanDoc || null,
+      });
+      toast.success('Verification documents resubmitted successfully. Administrator will review shortly.');
+      setShowVerificationModal(false);
+      if (refreshUserData) {
+        await refreshUserData();
+      }
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800 font-sans">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] text-[#1C1B18] font-sans">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 pt-24 space-y-8">
         
         {/* Modern Top Workspace Header */}
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-[#EAE4DC] rounded-3xl p-6 sm:p-8 border border-[#DCD4C8] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <img 
               src={user?.avatar && (user.avatar.startsWith('http') || user.avatar.startsWith('/media')) 
                 ? user.avatar 
                 : 'https://api.dicebear.com/7.x/adventurer/svg?seed=donor&backgroundColor=e8f3ec'
               } 
-              className="w-16 h-16 rounded-full border-2 border-emerald-100 object-cover shadow-sm shrink-0"
+              className="w-16 h-16 rounded-full border-2 border-[#C48B3F] object-cover shadow-xs shrink-0"
               alt="Avatar"
             />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-display font-black text-slate-900 tracking-tight">
+                <h1 className="text-2xl font-serif font-bold text-[#1C1B18] tracking-tight">
                   Welcome, {user?.name || user?.username || 'Generous Donor'}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-[#4A7C59] border border-emerald-100 font-mono font-bold text-xs uppercase tracking-wider">
-                  Verified Donor
-                </span>
+                {/* Dynamic Verification Status Badge */}
+                {user?.verificationStatus === 'pending' && (
+                  <span className="px-3 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <RefreshCw className="w-3 h-3 animate-spin text-amber-700" />
+                    Verification Pending
+                  </span>
+                )}
+                {user?.verificationStatus === 'changes_requested' && (
+                  <span className="px-3 py-0.5 rounded-full bg-indigo-100 border border-indigo-300 text-indigo-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <AlertCircle className="w-3 h-3 text-indigo-700" />
+                    Changes Requested
+                  </span>
+                )}
+                {user?.verificationStatus === 'rejected' && (
+                  <span className="px-3 py-0.5 rounded-full bg-rose-100 border border-rose-300 text-rose-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <XCircle className="w-3 h-3 text-rose-700" />
+                    Verification Rejected
+                  </span>
+                )}
+                {(user?.verificationStatus === 'approved' || !user?.verificationStatus) && (
+                  <span className="px-3 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                    Verified Donor
+                  </span>
+                )}
               </div>
-              <p className="text-slate-500 text-sm font-medium mt-1">
+              <p className="text-[#666157] text-sm font-medium mt-1">
                 {user?.email} &bull; Managing surplus item donations for social cause
               </p>
             </div>
@@ -268,25 +436,103 @@ export default function DonorDashboard() {
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => fetchMyDonations()}
-              className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 bg-[#F3F0EA] hover:bg-[#DCD4C8] border border-[#DCD4C8] text-[#1C1B18] font-medium text-xs rounded-full transition-all flex items-center gap-2 cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4 text-slate-500" /> Refresh Data
+              <RefreshCw className="w-4 h-4 text-[#666157]" /> Refresh Data
             </button>
             <button
               onClick={() => { setActiveTab('submit'); setSubmissionSuccess(null); }}
-              className="px-5 py-2.5 bg-[#4A7C59] hover:bg-[#3b6347] text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 shadow-md shadow-emerald-900/10 cursor-pointer"
+              className="px-6 py-2.5 bg-[#1C1B18] hover:bg-[#C48B3F] text-white font-medium text-xs rounded-full transition-all flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Create Donation
             </button>
           </div>
         </div>
 
+        {/* Identity Verification Alert Banners */}
+        {user?.verificationStatus === 'pending' && (
+          <div className="bg-amber-50 border border-amber-300 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0 mt-0.5">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-serif font-bold text-amber-950">Identity & Tax Verification In Progress</h3>
+                <p className="text-xs text-amber-900 mt-0.5 leading-relaxed">
+                  Your Aadhaar UID and PAN card documents have been submitted to the administration team for compliance audit. You can continue listing donations while your documents are being reviewed.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVerificationModal(true)}
+              className="px-4 py-2 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-xs rounded-full transition whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              Review / Update Docs
+            </button>
+          </div>
+        )}
+
+        {user?.verificationStatus === 'changes_requested' && (
+          <div className="bg-indigo-50 border border-indigo-300 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 border border-indigo-300 text-indigo-800 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-serif font-bold text-indigo-950">Action Needed: Administrator Requested Changes</h3>
+                <p className="text-xs text-indigo-900 mt-0.5 leading-relaxed">
+                  {user?.rejectionReason ? (
+                    <><strong>Admin Remarks:</strong> &ldquo;{user.rejectionReason}&rdquo; &mdash; Please adjust your Aadhaar or PAN details and re-upload required documents.</>
+                  ) : (
+                    "The administrator requested updates on your Aadhaar or PAN verification documents before approving your account."
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVerificationModal(true)}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-full transition whitespace-nowrap shrink-0 shadow-sm cursor-pointer"
+            >
+              Edit &amp; Resubmit Documents
+            </button>
+          </div>
+        )}
+
+        {user?.verificationStatus === 'rejected' && (
+          <div className="bg-rose-50 border border-rose-300 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-300 text-rose-800 flex items-center justify-center shrink-0 mt-0.5">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-serif font-bold text-rose-950">Identity Verification Not Approved</h3>
+                <p className="text-xs text-rose-900 mt-0.5 leading-relaxed">
+                  {user?.rejectionReason ? (
+                    <><strong>Reason:</strong> &ldquo;{user.rejectionReason}&rdquo; &mdash; Please provide valid Aadhaar / PAN documents to verify your profile.</>
+                  ) : (
+                    "Your submitted documents could not be verified by the administrator. Please update your details and resubmit."
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowVerificationModal(true)}
+              className="px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-full transition whitespace-nowrap shrink-0 shadow-sm cursor-pointer"
+            >
+              Update &amp; Resubmit Verification
+            </button>
+          </div>
+        )}
+
         {/* 4 Executive Metric Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-2">
+          <div className="bg-[#EAE4DC] p-6 rounded-3xl border border-[#DCD4C8] shadow-xs space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Dispatched</span>
-              <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#666157]">Total Dispatched</span>
+              <div className="w-9 h-9 rounded-full bg-[#F3F0EA] border border-[#DCD4C8] flex items-center justify-center text-[#1C1B18]">
                 <Box className="w-5 h-5" />
               </div>
             </div>
@@ -332,6 +578,7 @@ export default function DonorDashboard() {
         <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm overflow-x-auto">
           {[
             { id: 'overview', icon: TrendingUp, label: 'Overview' },
+            { id: 'ai-assistant', icon: Sparkles, label: 'AI Match Assistant' },
             { id: 'submit', icon: Plus, label: 'Submit Donation' },
             { id: 'history', icon: History, label: 'Donation History' },
             { id: 'impact', icon: Award, label: 'Tax Certificates' },
@@ -506,6 +753,18 @@ export default function DonorDashboard() {
             </motion.div>
           )}
 
+          {/* TAB: AI MATCH ASSISTANT */}
+          {activeTab === 'ai-assistant' && (
+            <motion.div
+              key="ai-assistant"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
+              <AiMatchAssistant onPreFillForm={handlePreFillFromAi} />
+            </motion.div>
+          )}
+
           {/* TAB 2: SUBMIT DONATION FORM */}
           {activeTab === 'submit' && (
             <motion.div
@@ -638,22 +897,35 @@ export default function DonorDashboard() {
                   {/* Geolocation Pickup Picker */}
                   <div className="space-y-3 pt-2">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Pickup Address & Geolocation</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <input
                         type="text"
                         value={addressSearch}
                         onChange={(e) => setAddressSearch(e.target.value)}
                         placeholder="Search address or city..."
-                        className="flex-1 bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-slate-900 font-medium text-sm focus:outline-none focus:border-emerald-500"
+                        className="flex-1 min-w-[200px] bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-slate-900 font-medium text-sm focus:outline-none focus:border-emerald-500"
                       />
                       <button
                         type="button"
                         onClick={handleAddressSearch}
-                        className="px-5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                        className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer"
                       >
                         Search
                       </button>
+                      <button
+                        type="button"
+                        onClick={handlePullCurrentLocation}
+                        className="px-4 py-3 bg-[#C48B3F] hover:bg-[#a67432] text-white font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Navigation className="w-3.5 h-3.5" /> Pull Location
+                      </button>
                     </div>
+
+                    {!location.lat && (
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 p-2.5 rounded-xl font-medium">
+                        📍 Location not set. Click <strong>Pull Location</strong>, search your address, or click directly on the map below.
+                      </p>
+                    )}
 
                     {searchResults.length > 0 && (
                       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm divide-y divide-slate-100 max-h-40 overflow-y-auto text-xs">
@@ -671,9 +943,9 @@ export default function DonorDashboard() {
 
                     <div className="h-64 rounded-xl overflow-hidden border border-slate-200">
                       <LeafletMap
-                        center={[location.lat, location.lng]}
-                        zoom={13}
-                        markers={[{ lat: location.lat, lng: location.lng, popupContent: '<strong>Pickup Point</strong>' }]}
+                        center={location.lat && location.lng ? [location.lat, location.lng] : [20.5937, 78.9629]}
+                        zoom={location.lat ? 13 : 5}
+                        markers={location.lat && location.lng ? [{ lat: location.lat, lng: location.lng, popupContent: '<strong>Pickup Point</strong>' }] : []}
                         onMapClick={handleMapClick}
                         className="h-full w-full"
                       />
@@ -916,6 +1188,166 @@ export default function DonorDashboard() {
           )}
 
         </AnimatePresence>
+
+        {/* ─── DONOR VERIFICATION RESUBMISSION MODAL ─── */}
+        {showVerificationModal && (
+          <div className="fixed inset-0 z-50 bg-[#1C1B18]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-[#EAE4DC] rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-[#DCD4C8] text-left p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-4">
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-[#1C1B18] flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-[#C48B3F]" />
+                    Identity &amp; Tax Documents
+                  </h2>
+                  <p className="text-xs text-[#666157] mt-0.5">
+                    Update Aadhaar and PAN documents for administrator compliance review
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationModal(false)}
+                  className="p-2 rounded-full text-[#666157] hover:text-[#1C1B18] hover:bg-[#F3F0EA] transition cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {user?.rejectionReason && (
+                <div className="p-4 bg-amber-100 border border-amber-300 rounded-2xl text-xs text-amber-950">
+                  <span className="font-bold block mb-1">Feedback / Remarks from Administrator:</span>
+                  <p>{user.rejectionReason}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleResubmitVerification} className="space-y-5">
+                {/* Aadhaar UID & Document */}
+                <div className="p-4 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-mono font-bold uppercase text-[#1C1B18] flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#C48B3F]" /> Aadhaar Card
+                    </label>
+                    <span className="text-[10px] text-[#666157]">12-Digit UID</span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={14}
+                    placeholder="1234-5678-9012"
+                    value={resubmitAadhaar}
+                    onChange={(e) => setResubmitAadhaar(formatAadhaarInput(e.target.value, resubmitAadhaar))}
+                    className="w-full bg-white border border-[#DCD4C8] rounded-xl px-3 py-2 text-xs font-mono text-[#1C1B18] outline-none focus:border-[#C48B3F] tracking-wider"
+                  />
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="cursor-pointer text-xs font-medium text-[#C48B3F] hover:underline flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{uploadingAadhaar ? 'Uploading document...' : 'Upload Aadhaar File (PDF/JPG)'}</span>
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
+                        onChange={handleUploadAadhaar}
+                        className="hidden"
+                        disabled={uploadingAadhaar}
+                      />
+                    </label>
+                    {uploadingAadhaar && <RefreshCw className="w-3.5 h-3.5 text-[#C48B3F] animate-spin" />}
+                  </div>
+                  {resubmitAadhaarDoc && (
+                    <div className="flex items-center justify-between text-xs bg-white border border-emerald-300 text-emerald-800 p-2.5 rounded-xl">
+                      <span className="truncate">✓ Aadhaar Attachment Uploaded</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={resubmitAadhaarDoc}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-emerald-700 hover:text-emerald-900 font-bold underline"
+                        >
+                          View
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setResubmitAadhaarDoc('')}
+                          className="text-stone-400 hover:text-rose-600 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* PAN Number & Document */}
+                <div className="p-4 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-mono font-bold uppercase text-[#1C1B18] flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#C48B3F]" /> PAN Card
+                    </label>
+                    <span className="text-[10px] text-[#666157]">10-Character Alphanumeric</span>
+                  </div>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    placeholder="ABCDE1234F"
+                    value={resubmitPan}
+                    onChange={(e) => setResubmitPan(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                    className="w-full bg-white border border-[#DCD4C8] rounded-xl px-3 py-2 text-xs font-mono text-[#1C1B18] outline-none focus:border-[#C48B3F] uppercase tracking-wider"
+                  />
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="cursor-pointer text-xs font-medium text-[#C48B3F] hover:underline flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{uploadingPan ? 'Uploading document...' : 'Upload PAN File (PDF/JPG)'}</span>
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
+                        onChange={handleUploadPan}
+                        className="hidden"
+                        disabled={uploadingPan}
+                      />
+                    </label>
+                    {uploadingPan && <RefreshCw className="w-3.5 h-3.5 text-[#C48B3F] animate-spin" />}
+                  </div>
+                  {resubmitPanDoc && (
+                    <div className="flex items-center justify-between text-xs bg-white border border-emerald-300 text-emerald-800 p-2.5 rounded-xl">
+                      <span className="truncate">✓ PAN Document Attached</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={resubmitPanDoc}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-emerald-700 hover:text-emerald-900 font-bold underline"
+                        >
+                          View
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setResubmitPanDoc('')}
+                          className="text-stone-400 hover:text-rose-600 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationModal(false)}
+                    className="px-5 py-2.5 rounded-full border border-[#DCD4C8] hover:bg-[#DCD4C8] text-xs font-medium text-[#1C1B18] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isResubmitting}
+                    className="px-6 py-2.5 rounded-full bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-xs font-medium shadow-xs transition flex items-center gap-2 cursor-pointer"
+                  >
+                    {isResubmitting ? 'Submitting...' : 'Resubmit for Verification'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </main>
       <Footer />

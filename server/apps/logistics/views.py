@@ -12,7 +12,7 @@ from .serializers import LogisticsJobSerializer
 from donation.models import Donation, DonationStatus
 
 class LogisticsTrackingView(APIView):
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request, donation_id):
         try:
@@ -20,11 +20,19 @@ class LogisticsTrackingView(APIView):
         except LogisticsJob.DoesNotExist:
             return Response({"error": "Tracking record not found for this donation ID"}, status=status.HTTP_404_NOT_FOUND)
             
+        donation = job.donation
+        is_donor = (donation.donor == request.user)
+        is_ngo_owner = (donation.matched_ngo and donation.matched_ngo.user == request.user)
+        is_admin = (request.user.is_staff or getattr(request.user, 'role', '') == 'admin')
+
+        if not (is_donor or is_ngo_owner or is_admin):
+            return Response({"error": "You do not have permission to view tracking details for this donation"}, status=status.HTTP_403_FORBIDDEN)
+            
         serializer = LogisticsJobSerializer(job)
         return Response(serializer.data)
 
 class UpdateLogisticsStepView(APIView):
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def patch(self, request, donation_id):
         try:
@@ -32,17 +40,39 @@ class UpdateLogisticsStepView(APIView):
         except LogisticsJob.DoesNotExist:
             return Response({"error": "Tracking record not found"}, status=status.HTTP_404_NOT_FOUND)
             
+        donation = job.donation
+        is_donor = (donation.donor == request.user)
+        is_ngo_owner = (donation.matched_ngo and donation.matched_ngo.user == request.user)
+        is_admin = (request.user.is_staff or getattr(request.user, 'role', '') == 'admin')
+        
+        if not (is_donor or is_ngo_owner or is_admin):
+            return Response({"error": "You do not have permission to update tracking milestones for this shipment"}, status=status.HTTP_403_FORBIDDEN)
+
+        if donation.status == DonationStatus.DELIVERED or job.current_step >= 6:
+            return Response({"error": "Cannot update logistics step for an already delivered or completed shipment."}, status=status.HTTP_400_BAD_REQUEST)
+
         step = request.data.get('step')
-        if not step:
+        if step is None:
             return Response({"error": "Step number is required"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
             step_num = int(step)
             if not (1 <= step_num <= 6):
                 return Response({"error": "Step number must be between 1 and 6"}, status=status.HTTP_400_BAD_REQUEST)
-        except ValueError:
+        except (ValueError, TypeError):
             return Response({"error": "Invalid step number format"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+        # Enforce sequential progression
+        if step_num > job.current_step + 1:
+            return Response({
+                "error": f"Invalid step transition from Step {job.current_step} to Step {step_num}. Steps must progress sequentially."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if step_num < job.current_step:
+            return Response({
+                "error": f"Cannot move backward from Step {job.current_step} to Step {step_num}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         job.current_step = step_num
         job.save()
         
@@ -54,8 +84,6 @@ class UpdateLogisticsStepView(APIView):
             5: ('Delivered', 'Parcels delivered to the destination NGO Hub address.'),
             6: ('Completed', 'Digital receipt matching complete, transaction hashed on ledger.')
         }
-        
-        donation = job.donation
         
         lat = donation.pickup_lat
         lng = donation.pickup_lng
@@ -80,12 +108,10 @@ class UpdateLogisticsStepView(APIView):
             }
         )
         
-        if step_num == 5:
+        if step_num in (5, 6):
             donation.status = DonationStatus.DELIVERED
-            donation.delivered_at = timezone.now()
-            donation.save()
-        elif step_num == 6:
-            donation.status = DonationStatus.DELIVERED
+            if not donation.delivered_at:
+                donation.delivered_at = timezone.now()
             donation.save()
             
         try:
@@ -104,7 +130,7 @@ class VerifyQRCodeView(APIView):
 
     def post(self, request, donation_id):
         token = request.data.get('token')
-        if not token:
+        if not token or not str(token).strip():
             return Response({"error": "Verification token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -112,15 +138,25 @@ class VerifyQRCodeView(APIView):
         except LogisticsJob.DoesNotExist:
             return Response({"error": "Tracking record not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        donation = job.donation
+        is_ngo_owner = (donation.matched_ngo and donation.matched_ngo.user == request.user)
+        is_admin = (request.user.is_staff or getattr(request.user, 'role', '') == 'admin')
+
+        if not (is_ngo_owner or is_admin):
+            return Response({"error": "Only the receiving NGO or an administrator can verify delivery QR code."}, status=status.HTTP_403_FORBIDDEN)
+
+        if donation.status == DonationStatus.DELIVERED or job.current_step >= 5:
+            return Response({"error": "This shipment has already been verified and delivered."}, status=status.HTTP_400_BAD_REQUEST)
+
         if job.verification_token != token:
             return Response({"error": "Invalid verification token"}, status=status.HTTP_400_BAD_REQUEST)
 
         job.current_step = 5
         job.save()
 
-        donation = job.donation
         donation.status = DonationStatus.DELIVERED
-        donation.delivered_at = timezone.now()
+        if not donation.delivered_at:
+            donation.delivered_at = timezone.now()
         donation.save()
 
         TrackingMilestone.objects.get_or_create(

@@ -15,14 +15,15 @@ export const authAPI = {
   login: (email, password) =>
     api.post('/api/auth/login/', { email, password }),
 
-  register: (username, email, password, role = 'donor', avatar = '👤') =>
-    api.post('/api/auth/register/', { username, email, password, role, avatar }),
+  register: (username, email, password, role = 'donor', avatar = '👤', locationData = {}) =>
+    api.post('/api/auth/register/', { username, email, password, role, avatar, ...locationData }),
+
 
   refresh: (refresh) =>
     api.post('/api/auth/refresh/', { refresh }),
 
-  sendOTP: (email) =>
-    api.post('/api/auth/resend-otp/', { email }),
+  sendOTP: (email, is_signup = false) =>
+    api.post('/api/auth/resend-otp/', { email, is_signup }),
 
   verifyOTP: (email, code) =>
     api.post('/api/auth/verify-otp/', { email, code }),
@@ -38,6 +39,9 @@ export const authAPI = {
 
   updateMe: (data) =>
     api.patch('/api/users/me/', data),
+
+  resubmitVerification: (data) =>
+    api.post('/api/users/resubmit-verification/', data),
 
   uploadFile: (file) => {
     const formData = new FormData();
@@ -161,6 +165,9 @@ export const logisticsAPI = {
 // ─────────────────────────────────────────────
 
 export const chatAPI = {
+  getContacts: (search = '') =>
+    api.get('/api/chat/contacts/', { params: search ? { search } : {} }),
+
   getChannels: () =>
     api.get('/api/chat/channels/'),
 
@@ -185,11 +192,23 @@ export const chatAPI = {
 // ─────────────────────────────────────────────
 
 export const moderationAPI = {
-  getPendingNGOs: () =>
-    api.get('/api/admin/ngos/pending/'),
+  getPendingNGOs: (status = 'pending') =>
+    api.get('/api/admin/ngos/pending/', { params: { status } }),
+
+  getNGO: (id) =>
+    api.get(`/api/admin/ngos/${id}/`),
 
   auditNGO: (id, action, reason = '') =>
     api.post(`/api/admin/ngos/${id}/audit/`, { action, reason }),
+
+  getPendingDonors: (status = 'pending') =>
+    api.get('/api/admin/donors/pending/', { params: { status } }),
+
+  getDonor: (id) =>
+    api.get(`/api/admin/donors/${id}/`),
+
+  auditDonor: (id, action, reason = '') =>
+    api.post(`/api/admin/donors/${id}/audit/`, { action, reason }),
 
   getPendingDonations: () =>
     api.get('/api/admin/donations/pending/'),
@@ -208,6 +227,18 @@ export const moderationAPI = {
 };
 
 // ─────────────────────────────────────────────
+// AI ASSISTANT APIs
+// ─────────────────────────────────────────────
+
+export const aiAPI = {
+  donationAssistant: (message, lat = null, lng = null, history = []) =>
+    api.post('/api/ai/donation-assistant/', { message, lat, lng, history }),
+
+  checkHealth: () =>
+    api.get('/api/ai/health/'),
+};
+
+// ─────────────────────────────────────────────
 // NOTIFICATION APIs
 // ─────────────────────────────────────────────
 
@@ -222,23 +253,32 @@ export const notificationAPI = {
     api.post('/api/notifications/mark-all-read/'),
 };
 
+export const locationAPI = {
+  reverseGeocode: (lat, lng) =>
+    api.get('/api/location/reverse-geocode/', { params: { lat, lng } }),
+};
+
 // ─────────────────────────────────────────────
 // HELPER: handle API errors gracefully
 // ─────────────────────────────────────────────
+
 
 export const getApiError = (error) => {
   if (error?.response?.data) {
     const data = error.response.data;
     // DRF returns errors as { field: [msg] } or { detail: msg } or { error: msg }
-    if (data.detail) return data.detail;
-    if (data.error) return data.error;
-    if (data.non_field_errors) return data.non_field_errors[0];
+    if (data.detail) return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+    if (data.error) return typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+    if (data.non_field_errors) return Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : String(data.non_field_errors);
     // Field errors - grab the first one
     const firstKey = Object.keys(data)[0];
     if (firstKey) {
       const val = data[firstKey];
-      return Array.isArray(val) ? `${firstKey}: ${val[0]}` : String(val);
+      const fieldName = firstKey.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+      const msg = Array.isArray(val) ? val[0] : String(val);
+      return `${fieldName}: ${msg}`;
     }
   }
   return error?.message || 'An unexpected error occurred. Please try again.';
 };
+

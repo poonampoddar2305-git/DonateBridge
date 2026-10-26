@@ -8,20 +8,35 @@ import {
 import { Button } from '../components/ui/Button';
 import Navbar from '../components/layout/Navbar';
 import { chatAPI, getApiError } from '../api/index';
-import { useAuth } from '../context/GlobalStateContext';
+import { useAuth, useSocket } from '../context/GlobalStateContext';
 
 export default function ChatTerminal() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+  const { addNotification } = useSocket();
 
   const [activeChannel, setActiveChannel] = useState(null);
   const [typedMessage, setTypedMessage] = useState('');
   const [channels, setChannels] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('contacts'); // 'contacts' | 'conversations'
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Fetch Available Contacts
+  const fetchContacts = async (query = '') => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await chatAPI.getContacts(query);
+      setContacts(res.data);
+    } catch (err) {
+      console.error("Failed to load contacts:", err);
+    }
+  };
 
   // Fetch Channels on mount
   const fetchChannels = async (showLoading = true) => {
@@ -40,17 +55,47 @@ export default function ChatTerminal() {
     }
   };
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchChannels();
+      fetchContacts('');
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  const handleStartChat = async (otherUserId) => {
+    try {
+      const res = await chatAPI.createChannel(otherUserId);
+      const chan = res.data;
+      await fetchChannels(false);
+      setActiveChannel(chan.id);
+      setActiveTab('conversations');
+      toast.success("Conversation opened.");
+    } catch (err) {
+      toast.error(getApiError(err));
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (activeTab === 'contacts') {
+      fetchContacts(val);
+    }
+  };
+
   // Fetch messages for active channel
   const fetchMessages = async (channelId) => {
     if (!channelId) return;
     try {
       const res = await chatAPI.getMessages(channelId);
-      // Backend returns fields: id, sender_name, message_type, text, media_url, self, status, time, etc.
       setMessages(res.data);
     } catch (err) {
       console.error("Failed to load channel messages:", err);
     }
   };
+
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -62,34 +107,65 @@ export default function ChatTerminal() {
 
   // Setup WebSocket for active channel
   const ws = useRef(null);
+  const [wsStatus, setWsStatus] = useState('DISCONNECTED');
 
   useEffect(() => {
     if (!activeChannel) return;
     fetchMessages(activeChannel);
 
-    const token = localStorage.getItem('access');
-    // Using ws:// protocol pointing to the django backend port 8000
-    const wsUrl = `ws://127.0.0.1:8000/ws/chat/${activeChannel}/?token=${token}`;
-    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const wsProtocol = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+    const host = apiBase.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsProtocol}//${host}/ws/chat/${activeChannel}/?token=${encodeURIComponent(token)}`;
+
+    setWsStatus('CONNECTING');
     ws.current = new WebSocket(wsUrl);
 
+    ws.current.onopen = () => {
+      setWsStatus('CONNECTED');
+    };
+
     ws.current.onmessage = (event) => {
-      const newMsg = JSON.parse(event.data);
-      setMessages(prev => {
-        // Prevent duplicates
-        if (prev.find(m => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
-      // Update channel's last message locally
-      setChannels(prev => prev.map(ch => ch.id === activeChannel ? { 
-        ...ch, 
-        lastMsg: newMsg.message_type === 'text' ? newMsg.text : `Sent a ${newMsg.message_type}`, 
-        time: 'Just now' 
-      } : ch));
+      try {
+        const newMsg = JSON.parse(event.data);
+        if (newMsg.error) {
+          toast.error(newMsg.error);
+          return;
+        }
+        setMessages(prev => {
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+        setChannels(prev => prev.map(ch => ch.id === activeChannel ? {
+          ...ch,
+          lastMsg: newMsg.message_type === 'text' ? newMsg.text : `Sent a ${newMsg.message_type}`,
+          time: 'Just now'
+        } : ch));
+        if (newMsg && !newMsg.self && addNotification) {
+          addNotification({
+            id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            type: 'match',
+            title: `New Message from ${newMsg.sender_name || 'Contact'}`,
+            message: newMsg.text || `Sent a ${newMsg.message_type || 'file'}`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false
+          });
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket chat message:", err);
+      }
     };
 
     ws.current.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("WebSocket chat error:", error);
+      setWsStatus('DISCONNECTED');
+    };
+
+    ws.current.onclose = () => {
+      setWsStatus('DISCONNECTED');
     };
 
     return () => {
@@ -97,9 +173,8 @@ export default function ChatTerminal() {
         ws.current.close();
       }
     };
-  }, [activeChannel]);
+  }, [activeChannel, toast]);
 
-  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -129,104 +204,184 @@ export default function ChatTerminal() {
 
   const handleTextSubmit = (e) => {
     e.preventDefault();
-    if (!typedMessage.trim() || sending) return;
-    handleSendMessage(typedMessage.trim());
+    if (!typedMessage.trim()) return;
+    handleSendMessage(typedMessage.trim(), 'text');
   };
-
-
 
   const currentChannel = channels.find(c => c.id === activeChannel);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] font-sans">
       <Navbar />
 
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full px-6 py-8 gap-6 items-stretch h-[calc(100vh-140px)] min-h-160">
+      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 pt-24 gap-6 items-stretch min-h-160">
         
-        {/* Column 1: Threads list */}
-        <aside className="w-full lg:w-72 bg-white border border-border rounded-2xl flex flex-col shrink-0 shadow-premium-sm overflow-hidden">
-          <div className="p-5 border-b border-border space-y-4">
-            <h3 className="font-display font-bold text-slate-900" >Messages</h3>
+        {/* Column 1: Contacts & Threads list */}
+        <aside className="w-full lg:w-80 bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl flex flex-col shrink-0 shadow-xs overflow-hidden text-left">
+          <div className="p-4 border-b border-[#DCD4C8] space-y-3">
+            <h3 className="font-serif font-bold text-[#1C1B18]">Messages & Directory</h3>
+            
+            {/* Tab selection */}
+            <div className="flex p-1 bg-[#F3F0EA] rounded-full border border-[#DCD4C8] text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setActiveTab('contacts')}
+                className={`flex-1 py-1.5 rounded-full transition-all cursor-pointer ${
+                  activeTab === 'contacts' ? 'bg-[#1C1B18] text-white font-bold' : 'text-[#666157] hover:text-[#1C1B18]'
+                }`}
+              >
+                Available ({contacts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('conversations')}
+                className={`flex-1 py-1.5 rounded-full transition-all cursor-pointer ${
+                  activeTab === 'conversations' ? 'bg-[#1C1B18] text-white font-bold' : 'text-[#666157] hover:text-[#1C1B18]'
+                }`}
+              >
+                Chats ({channels.length})
+              </button>
+            </div>
+
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <Search className="w-4 h-4 text-[#666157] absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Search conversations..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-primary placeholder-slate-400"
-                
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder={activeTab === 'contacts' ? "Search contacts or city..." : "Search chat history..."}
+                className="w-full pl-10 pr-4 py-2 rounded-full border border-[#DCD4C8] bg-[#F3F0EA] text-[#1C1B18] focus:outline-none focus:border-[#C48B3F] placeholder-[#666157] text-xs font-medium"
               />
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {loading ? (
-              <div className="text-center py-8 text-slate-400 text-xs">Loading conversations…</div>
-            ) : channels.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-xs">No active chat conversations.</div>
-            ) : (
-              channels.map((ch) => (
-                <div
-                  key={ch.id}
-                  onClick={() => setActiveChannel(ch.id)}
-                  className={`p-4 rounded-xl cursor-pointer transition-all border ${
-                    activeChannel === ch.id
-                      ? 'bg-emerald-50/40 border-primary text-slate-900 font-bold'
-                      : 'border-transparent hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex justify-between items-center text-xs">
-                    <div className="font-bold flex items-center gap-1 text-slate-900" >
-                      {ch.name}
-                      {ch.verified && <ShieldCheck className="w-4 h-4 text-primary shrink-0" />}
-                    </div>
-                    <span className="font-mono text-slate-400" >{ch.time}</span>
-                  </div>
-                  <p className="truncate mt-1.5 text-slate-500 font-medium" >{ch.lastMsg}</p>
+            {activeTab === 'contacts' ? (
+              contacts.length === 0 ? (
+                <div className="text-center py-8 text-[#666157] text-xs font-mono">
+                  No contacts found in directory.
                 </div>
-              ))
+              ) : (
+                contacts.map((contact) => (
+                  <div
+                    key={`${contact.role}-${contact.id}`}
+                    className="p-3.5 rounded-2xl border border-[#DCD4C8] bg-[#F3F0EA] hover:border-[#C48B3F] transition-all flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xl shrink-0">{contact.avatar || (contact.role === 'ngo' ? '🏫' : '🙋‍♂️')}</span>
+                      <div className="min-w-0">
+                        <p className="font-serif font-bold text-xs text-[#1C1B18] truncate flex items-center gap-1">
+                          {contact.name}
+                          {contact.role === 'ngo' && <ShieldCheck className="w-3.5 h-3.5 text-[#C48B3F] shrink-0" />}
+                        </p>
+                        <p className="text-[10px] text-[#666157] font-mono flex items-center gap-1 truncate mt-0.5">
+                          <MapPin className="w-3 h-3 text-[#C48B3F] shrink-0" />
+                          {contact.city}, {contact.state}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => handleStartChat(contact.user_id)}
+                      className="bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-[10px] font-bold px-3 py-1.5 rounded-full shrink-0 cursor-pointer"
+                    >
+                      Chat
+                    </Button>
+                  </div>
+                ))
+              )
+            ) : (
+              loading ? (
+                <div className="text-center py-8 text-[#666157] text-xs font-mono">Loading conversations…</div>
+              ) : channels.length === 0 ? (
+                <div className="text-center py-8 text-[#666157] text-xs font-mono">No active chat conversations.</div>
+              ) : (
+                channels
+                  .filter(ch => !searchQuery || ch.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((ch) => (
+                    <div
+                      key={ch.id}
+                      onClick={() => setActiveChannel(ch.id)}
+                      className={`p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                        activeChannel === ch.id
+                          ? 'bg-[#F3F0EA] border-[#C48B3F] text-[#1C1B18] font-bold shadow-xs'
+                          : 'border-transparent hover:bg-[#F3F0EA]/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="font-serif font-bold flex items-center gap-1 text-[#1C1B18]">
+                          {ch.name}
+                          {ch.verified && <ShieldCheck className="w-4 h-4 text-[#C48B3F] shrink-0" />}
+                        </div>
+                        <span className="font-mono text-[10px] text-[#666157]">{ch.time}</span>
+                      </div>
+                      <p className="truncate mt-1 text-[#666157] font-medium text-xs">{ch.lastMsg}</p>
+                    </div>
+                  ))
+              )
             )}
           </div>
         </aside>
 
+
         {/* Column 2: Message flow screen */}
-        <main className="flex-1 flex flex-col bg-white border border-border rounded-2xl shadow-premium-sm overflow-hidden min-h-120">
+        <main className="flex-1 flex flex-col bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs overflow-hidden min-h-120 text-left">
           {/* Active channel header */}
-          <div className="p-5 border-b border-border flex justify-between items-center bg-slate-50">
+          <div className="p-5 border-b border-[#DCD4C8] flex justify-between items-center bg-[#EAE4DC]">
             {currentChannel ? (
               <div>
-                <p className="font-bold flex items-center gap-1.5 text-slate-900" >
-                  {currentChannel.name}
-                  {currentChannel.verified && <ShieldCheck className="w-4.5 h-4.5 text-primary shrink-0" />}
-                </p>
-                <p className="text-slate-500 mt-0.5" >Secure NGO matching chat &bull; Encrypted logs</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-serif font-bold flex items-center gap-1.5 text-[#1C1B18]">
+                    {currentChannel.name}
+                    {currentChannel.verified && <ShieldCheck className="w-4.5 h-4.5 text-[#C48B3F] shrink-0" />}
+                  </p>
+                  {wsStatus === 'CONNECTED' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#C48B3F] animate-pulse"></span> LIVE
+                    </span>
+                  )}
+                  {wsStatus === 'CONNECTING' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3F0EA] text-amber-800 border border-[#DCD4C8]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span> CONNECTING
+                    </span>
+                  )}
+                  {wsStatus === 'DISCONNECTED' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#F3F0EA] text-[#666157] border border-[#DCD4C8]">
+                      OFFLINE
+                    </span>
+                  )}
+                </div>
+                <p className="text-[#666157] text-xs mt-0.5">Secure NGO matching chat &bull; Encrypted logs</p>
               </div>
             ) : (
               <div>
-                <p className="font-bold text-slate-900" >No Conversation Selected</p>
-                <p className="text-slate-500 mt-0.5" >Select an active user chat to begin</p>
+                <p className="font-serif font-bold text-[#1C1B18]">No Conversation Selected</p>
+                <p className="text-[#666157] text-xs mt-0.5">Select an active user chat to begin</p>
               </div>
             )}
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => toast.info('Connecting voice call...')} icon={Phone} />
-              <Button variant="secondary" onClick={() => toast.info('Connecting video call...')} icon={Video} />
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono font-bold text-[#666157] px-3 py-1 bg-[#F3F0EA] rounded-full border border-[#DCD4C8] uppercase tracking-wider">
+                Direct Text Messaging
+              </span>
             </div>
           </div>
 
           {/* Messages Stream */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/20">
+          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-[#F3F0EA]">
             {!isAuthenticated ? (
-              <div className="text-center py-16 text-slate-500 space-y-3">
-                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-                <p className="font-bold">Authentication Required</p>
+              <div className="text-center py-16 text-[#666157] space-y-3">
+                <AlertCircle className="w-8 h-8 text-[#C48B3F] mx-auto" />
+                <p className="font-serif font-bold text-[#1C1B18]">Authentication Required</p>
                 <p className="text-xs">Sign in to coordinate with matches.</p>
-                <Button onClick={() => navigate('/auth')}>Sign In</Button>
+                <Button onClick={() => navigate('/auth')} className="rounded-full bg-[#1C1B18] text-white">Sign In</Button>
               </div>
             ) : !activeChannel ? (
-              <div className="text-center py-16 text-slate-500 text-xs">
+              <div className="text-center py-16 text-[#666157] text-xs font-mono">
                 Select a thread from the side panel to view messages.
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center py-16 text-slate-400 text-xs">
+              <div className="text-center py-16 text-[#666157] text-xs font-mono">
                 No messages yet. Say hello!
               </div>
             ) : (
@@ -237,31 +392,30 @@ export default function ChatTerminal() {
                     msg.self ? 'ml-auto items-end' : 'mr-auto items-start'
                   }`}
                 >
-                  <span className="text-slate-400 font-semibold" >{msg.sender_name}</span>
+                  <span className="text-[#666157] font-mono text-[10px] font-bold">{msg.sender_name}</span>
                   <div
-                    className={`p-4 rounded-2xl leading-relaxed shadow-premium-xs text-slate-800 ${
+                    className={`p-4 rounded-2xl leading-relaxed shadow-xs text-xs ${
                       msg.self
-                        ? 'bg-primary text-white font-medium rounded-tr-none'
-                        : 'bg-white border border-border rounded-tl-none'
+                        ? 'bg-[#1C1B18] text-white font-medium rounded-tr-none'
+                        : 'bg-[#EAE4DC] border border-[#DCD4C8] text-[#1C1B18] rounded-tl-none'
                     }`}
-                    
                   >
                     {msg.text}
 
                     {/* Image attachment rendering */}
                     {msg.message_type === 'image' && msg.media_url && (
-                      <div className="mt-3 rounded-xl overflow-hidden border border-black/10">
+                      <div className="mt-3 rounded-xl overflow-hidden border border-[#DCD4C8]">
                         <img src={msg.media_url} alt="attachment" className="max-w-full h-auto object-cover max-h-52" />
                       </div>
                     )}
 
                     {/* Location attachment rendering */}
                     {msg.message_type === 'location' && (
-                      <div className="mt-3 p-3 bg-slate-100 rounded-xl flex items-center gap-3 border border-slate-200">
-                        <MapPin className="w-5 h-5 text-primary shrink-0" />
+                      <div className="mt-3 p-3 bg-[#F3F0EA] rounded-xl flex items-center gap-3 border border-[#DCD4C8] text-[#1C1B18]">
+                        <MapPin className="w-5 h-5 text-[#C48B3F] shrink-0" />
                         <div>
-                          <p className="font-bold text-slate-850" >Current Pickup Coordinates</p>
-                          <p className="text-slate-500 mt-0.5" >
+                          <p className="font-serif font-bold">Handover Address Coordinates</p>
+                          <p className="text-[#666157] mt-0.5 font-mono">
                             {msg.lat && msg.lng ? `${msg.lat.toFixed(4)}° N, ${msg.lng.toFixed(4)}° E` : 'Coords shared'}
                           </p>
                         </div>
@@ -270,13 +424,13 @@ export default function ChatTerminal() {
                   </div>
                   
                   {/* Time & Read Receipts section */}
-                  <div className="flex items-center gap-1.5 text-slate-400 font-mono" >
+                  <div className="flex items-center gap-1.5 text-[#666157] font-mono text-[10px]">
                     <span>{msg.time}</span>
                     {msg.self && (
                       <span>
-                        {msg.status === 'sent' && <Check className="w-3.5 h-3.5 text-slate-400" />}
-                        {msg.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-slate-400" />}
-                        {msg.status === 'read' && <CheckCheck className="w-3.5 h-3.5 text-blue-500" />}
+                        {msg.status === 'sent' && <Check className="w-3.5 h-3.5 text-[#666157]" />}
+                        {msg.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-[#666157]" />}
+                        {msg.status === 'read' && <CheckCheck className="w-3.5 h-3.5 text-[#C48B3F]" />}
                       </span>
                     )}
                   </div>
@@ -288,92 +442,76 @@ export default function ChatTerminal() {
           </div>
 
           {/* Message input bar with attachment shortcuts */}
-          <div className="border-t border-border bg-white p-4 space-y-3 shrink-0">
+          <div className="border-t border-[#DCD4C8] bg-[#EAE4DC] p-4 space-y-3 shrink-0">
 
             <form onSubmit={handleTextSubmit} className="flex gap-3">
               <input
                 type="text"
                 disabled={!activeChannel || sending}
-                placeholder={activeChannel ? "Type secure message..." : "Select a thread to chat..."}
+                placeholder={activeChannel ? "Type message..." : "Select a thread to chat..."}
                 value={typedMessage}
                 onChange={(e) => setTypedMessage(e.target.value)}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 focus:outline-none focus:border-primary placeholder-slate-400 disabled:bg-slate-50"
-                
+                className="flex-1 px-4 py-3 rounded-2xl border border-[#DCD4C8] bg-[#F3F0EA] text-[#1C1B18] focus:outline-none focus:border-[#C48B3F] placeholder-[#666157] text-xs font-medium"
                 required
               />
-              <Button type="submit" variant="primary" icon={Send} loading={sending} isDisabled={!activeChannel || sending}>
+              <Button type="submit" variant="primary" icon={Send} loading={sending} isDisabled={!activeChannel || sending || !typedMessage.trim()} className="bg-[#1C1B18] hover:bg-[#C48B3F] text-white rounded-full px-5 text-xs font-medium">
                 Send
               </Button>
             </form>
           </div>
         </main>
 
-        {/* Column 3: Active Match Details & Action Console */}
-        <aside className="hidden xl:flex w-80 bg-white border border-border rounded-2xl flex-col shrink-0 shadow-premium-sm p-5 space-y-6 overflow-y-auto">
+        {/* Column 3: Direct Coordination Guide */}
+        <aside className="hidden xl:flex w-80 bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl flex-col shrink-0 shadow-xs p-5 space-y-6 overflow-y-auto text-left">
           <div>
-            <h4 className="font-display font-bold text-slate-900" >Match Information</h4>
-            <p className="text-slate-400 mt-0.5" >Fulfillment status &amp; logistics tracking details</p>
+            <h4 className="font-serif font-bold text-[#1C1B18]">Direct Handover</h4>
+            <p className="text-[#666157] text-xs mt-0.5">Self-delivery coordination guidelines</p>
           </div>
 
           {/* Stepper Status */}
           <div className="space-y-4">
-            <h5 className="text-slate-500 uppercase font-mono tracking-wider font-bold" >Logistics Status</h5>
-            <div className="space-y-3.5">
+            <h5 className="text-[#666157] uppercase font-mono tracking-wider font-bold text-[10px]">Coordination Steps</h5>
+            <div className="space-y-3.5 text-xs">
               <div className="flex gap-3 items-start">
-                <div className="w-6 h-6 rounded-full bg-emerald-50 text-primary border border-emerald-100 flex items-center justify-center font-mono font-bold" >1</div>
+                <div className="w-6 h-6 rounded-full bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8] flex items-center justify-center font-mono font-bold shrink-0">1</div>
                 <div>
-                  <p className="font-bold text-slate-800" >Donation Registered</p>
-                  <p className="text-slate-400" >Items submitted by donor.</p>
+                  <p className="font-serif font-bold text-[#1C1B18]">Agree via Chat</p>
+                  <p className="text-[#666157] text-[11px]">Confirm item availability & quantities directly.</p>
                 </div>
               </div>
 
               <div className="flex gap-3 items-start">
-                <div className="w-6 h-6 rounded-full bg-emerald-50 text-primary border border-emerald-100 flex items-center justify-center font-mono font-bold" >2</div>
+                <div className="w-6 h-6 rounded-full bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8] flex items-center justify-center font-mono font-bold shrink-0">2</div>
                 <div>
-                  <p className="font-bold text-slate-800" >Fulfillment Audited</p>
-                  <p className="text-slate-400" >Verification review certified by Admin.</p>
+                  <p className="font-serif font-bold text-[#1C1B18]">Exchange Details</p>
+                  <p className="text-[#666157] text-[11px]">Share pickup address and preferred time slot.</p>
                 </div>
               </div>
 
               <div className="flex gap-3 items-start">
-                <div className="w-6 h-6 rounded-full bg-emerald-50 text-primary border border-emerald-100 flex items-center justify-center font-mono font-bold" >3</div>
+                <div className="w-6 h-6 rounded-full bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8] flex items-center justify-center font-mono font-bold shrink-0">3</div>
                 <div>
-                  <p className="font-bold text-slate-800" >Smart Match Confirmed</p>
-                  <p className="text-slate-400" >Linked match parameters fulfilled.</p>
+                  <p className="font-serif font-bold text-[#1C1B18]">Direct Physical Transfer</p>
+                  <p className="text-[#666157] text-[11px]">Donor or NGO handles physical delivery directly.</p>
                 </div>
               </div>
 
-              <div className="flex gap-3 items-start opacity-50">
-                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-400 border border-slate-200 flex items-center justify-center font-mono font-bold" >4</div>
+              <div className="flex gap-3 items-start">
+                <div className="w-6 h-6 rounded-full bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8] flex items-center justify-center font-mono font-bold shrink-0">4</div>
                 <div>
-                  <p className="font-bold text-slate-800" >Courier Dispatched</p>
-                  <p className="text-slate-400" >Scheduled for pickup route tracking.</p>
+                  <p className="font-serif font-bold text-[#1C1B18]">Confirm Receipt</p>
+                  <p className="text-[#666157] text-[11px]">Acknowledge successful item handover.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Eco info */}
-          <div className="border-t border-slate-100 pt-5 space-y-3">
-            <h5 className="text-slate-500 uppercase font-mono tracking-wider font-bold" >Eco Optimization</h5>
-            <div className="flex items-center justify-between" >
-              <span className="text-slate-500 font-medium">Logistics Radius</span>
-              <span className="font-bold text-slate-900">1.2 km</span>
-            </div>
-            <div className="flex items-center justify-between" >
-              <span className="text-slate-500 font-medium">Estimated Carbon Saved</span>
-              <span className="font-bold text-primary">10.1 kg CO₂</span>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-5 text-center">
-            <button
-              onClick={() => toast.info('Logistics manifest printed successfully.')}
-              className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-bold transition-all cursor-pointer"
-              
-            >
-              Print Delivery Manifest
-            </button>
+          {/* Self delivery note */}
+          <div className="border-t border-[#DCD4C8] pt-5 space-y-2 text-xs">
+            <h5 className="text-[#666157] uppercase font-mono tracking-wider font-bold text-[10px]">Self-Delivery Policy</h5>
+            <p className="text-[#666157] text-[11px] leading-relaxed">
+              DonateBridge facilitates direct communication between Donors and Organizations. We do not operate third-party courier or transport services.
+            </p>
           </div>
         </aside>
 

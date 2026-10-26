@@ -1,14 +1,9 @@
 import urllib.parse
-# pyrefly: ignore [missing-import]
 from django.conf import settings
-# pyrefly: ignore [missing-import]
 from django.contrib.auth import get_user_model
 from channels.db import database_sync_to_async
-# pyrefly: ignore [missing-import]
 from rest_framework_simplejwt.tokens import AccessToken
-# pyrefly: ignore [missing-import]
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-# pyrefly: ignore [missing-import]
 from django.contrib.auth.models import AnonymousUser
 
 User = get_user_model()
@@ -17,10 +12,11 @@ User = get_user_model()
 def get_user_from_token(token_key):
     try:
         access_token = AccessToken(token_key)
-        user_id = access_token[settings.SIMPLE_JWT['USER_ID_CLAIM']]
+        user_id_claim = settings.SIMPLE_JWT.get('USER_ID_CLAIM', 'user_id') if hasattr(settings, 'SIMPLE_JWT') else 'user_id'
+        user_id = access_token[user_id_claim]
         user = User.objects.get(id=user_id)
         return user
-    except (InvalidToken, TokenError, User.DoesNotExist, KeyError):
+    except (InvalidToken, TokenError, User.DoesNotExist, KeyError, Exception):
         return AnonymousUser()
 
 class JWTAuthMiddleware:
@@ -31,6 +27,13 @@ class JWTAuthMiddleware:
         query_string = scope.get("query_string", b"").decode("utf-8")
         query_params = urllib.parse.parse_qs(query_string)
         token_key = query_params.get("token", [None])[0]
+
+        if not token_key:
+            headers = dict(scope.get("headers", []))
+            if b"authorization" in headers:
+                auth_header = headers[b"authorization"].decode("utf-8")
+                if auth_header.startswith("Bearer "):
+                    token_key = auth_header.split(" ")[1]
 
         if token_key:
             scope["user"] = await get_user_from_token(token_key)

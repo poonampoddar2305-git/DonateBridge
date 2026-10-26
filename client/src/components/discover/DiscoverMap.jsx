@@ -80,7 +80,7 @@ function MapController({ center, zoom, bounds }) {
 }
 
 export default function DiscoverMap({
-  userCoords = [21.1458, 79.0882],
+  userCoords = null,
   onUserCoordsChange = null,
   items = [],
   searchType = 'donations',
@@ -102,7 +102,8 @@ export default function DiscoverMap({
       const lng = selectedItem.location ? selectedItem.location.lng : selectedItem.lng;
       if (lat && lng) return [lat, lng];
     }
-    return userCoords;
+    if (userCoords && userCoords[0] && userCoords[1]) return userCoords;
+    return [20.5937, 78.9629]; // Geographic overview
   }, [selectedItem, userCoords]);
 
   // Compute bounds
@@ -110,7 +111,8 @@ export default function DiscoverMap({
     if (routeData && routeData.coordinates && routeData.coordinates.length > 0) {
       return routeData.coordinates;
     }
-    const points = [userCoords];
+    const points = [];
+    if (userCoords && userCoords[0] && userCoords[1]) points.push(userCoords);
     items.forEach(item => {
       const lat = item.location ? item.location.lat : item.lat;
       const lng = item.location ? item.location.lng : item.lng;
@@ -153,7 +155,7 @@ export default function DiscoverMap({
         <button
           title="Recenter GPS"
           onClick={() => {
-            if (mapRef.current) {
+            if (mapRef.current && userCoords && userCoords[0] && userCoords[1]) {
               mapRef.current.setView(userCoords, 14, { animate: true });
             }
           }}

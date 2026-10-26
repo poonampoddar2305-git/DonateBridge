@@ -38,7 +38,6 @@ export default function SmartMatchVisualizer() {
     return rawMatches.map((m, idx) => {
       const sb = m.scoreBreakdown || {};
       if (mode === 'donor') {
-        // Donor sees NGO matches for a specific donation
         return {
           id: idx + 1,
           donationId: null,
@@ -58,7 +57,6 @@ export default function SmartMatchVisualizer() {
           ngoTrustScore: m.ngo?.trustScore || 70,
         };
       } else {
-        // NGO sees donation matches for their needs
         const d = m.donation || {};
         return {
           id: idx + 1,
@@ -110,7 +108,6 @@ export default function SmartMatchVisualizer() {
     }
   }, [isDonor, isNgo, normalizeMatches]);
 
-  // Auto-select first verified donation for donors
   useEffect(() => {
     if (isDonor && myDonations.length > 0) {
       const verified = myDonations.filter(d => d.status === 'VERIFIED' || d.status === 'PENDING');
@@ -120,7 +117,6 @@ export default function SmartMatchVisualizer() {
     }
   }, [isDonor, myDonations, selectedDonationId]);
 
-  // Fetch matches when donation selected (donor) or on mount (NGO)
   useEffect(() => {
     if (isDonor && selectedDonationId) {
       fetchMatches(selectedDonationId);
@@ -156,28 +152,28 @@ export default function SmartMatchVisualizer() {
   const currentMatch = matches[selectedMatchIdx] || null;
   const donorVerifiedDonations = isDonor ? myDonations.filter(d => d.status === 'VERIFIED' || d.status === 'PENDING') : [];
 
-  // Map center based on current match
-  const mapCenter = currentMatch
-    ? [currentMatch.donorPickupLat || 21.1458, currentMatch.donorPickupLng || 79.0882]
-    : [21.1458, 79.0882];
+  const hasCoords = currentMatch && currentMatch.donorPickupLat && currentMatch.donorPickupLng;
+  const mapCenter = hasCoords
+    ? [currentMatch.donorPickupLat, currentMatch.donorPickupLng]
+    : [20.5937, 78.9629];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] font-sans">
       <Navbar />
 
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 pt-16">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 pt-20 text-left">
         
         {/* Left Side: Rankings */}
-        <aside className="w-full lg:w-120 bg-white border-r border-slate-200 flex flex-col min-h-0 overflow-y-auto p-6 space-y-5 shrink-0 shadow-sm">
+        <aside className="w-full lg:w-120 bg-[#EAE4DC] border-r border-[#DCD4C8] flex flex-col min-h-0 overflow-y-auto p-6 space-y-5 shrink-0 shadow-xs">
           
           {/* Header */}
-          <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+          <div className="flex justify-between items-center pb-4 border-b border-[#DCD4C8]">
             <div>
-              <h3 className="font-display font-black text-slate-900 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-500" />
+              <h3 className="font-serif font-bold text-[#1C1B18] flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#C48B3F]" />
                 {isDonor ? 'NGO Match Rankings' : 'Donation Matches'}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 font-medium">
+              <p className="text-xs text-[#666157] mt-1 font-medium">
                 {isDonor
                   ? 'Best NGO partners for your donation based on proximity, need urgency & trust.'
                   : 'Available donations matching your registered needs, ranked by compatibility.'
@@ -187,9 +183,9 @@ export default function SmartMatchVisualizer() {
             <button
               onClick={handleReoptimize}
               disabled={isOptimizing || isLoading}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl font-bold text-xs text-slate-700 transition-all cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#F3F0EA] hover:bg-[#DCD4C8] border border-[#DCD4C8] rounded-full text-xs font-mono font-bold text-[#1C1B18] transition-all cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${isOptimizing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isOptimizing ? 'animate-spin' : ''}`} />
               Recalculate
             </button>
           </div>
@@ -197,12 +193,12 @@ export default function SmartMatchVisualizer() {
           {/* Donor: Donation Selector */}
           {isDonor && (
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Select Your Donation</label>
+              <label className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider block">Select Your Donation</label>
               {donorVerifiedDonations.length > 0 ? (
                 <select
                   value={selectedDonationId}
                   onChange={(e) => setSelectedDonationId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-900 font-bold text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm"
+                  className="w-full bg-[#F3F0EA] border border-[#DCD4C8] p-3 rounded-2xl text-[#1C1B18] font-bold text-xs focus:outline-none focus:border-[#C48B3F] shadow-xs"
                 >
                   {donorVerifiedDonations.map(d => (
                     <option key={d.id} value={d.id}>
@@ -211,8 +207,8 @@ export default function SmartMatchVisualizer() {
                   ))}
                 </select>
               ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-700 text-sm font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="bg-amber-100 border border-amber-300 rounded-2xl p-4 text-amber-900 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-700" />
                   No verified donations found. Submit a donation first.
                 </div>
               )}
@@ -221,19 +217,19 @@ export default function SmartMatchVisualizer() {
 
           {/* Loading State */}
           {isLoading && (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400 space-y-4">
-              <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
-              <p className="font-bold text-sm">Computing match rankings...</p>
+            <div className="flex-1 flex flex-col items-center justify-center py-16 text-[#666157] space-y-4">
+              <Loader2 className="w-8 h-8 animate-spin text-[#C48B3F]" />
+              <p className="font-mono text-xs font-bold">Computing match rankings...</p>
             </div>
           )}
 
           {/* Error State */}
           {!isLoading && error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-red-700 text-sm font-medium flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+            <div className="bg-rose-100 border border-rose-300 rounded-2xl p-6 text-rose-900 text-xs font-medium flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-rose-700" />
               <div>
-                <p className="font-bold">Unable to load matches</p>
-                <p className="mt-1 text-red-600">{error}</p>
+                <p className="font-serif font-bold">Unable to load matches</p>
+                <p className="mt-1 text-rose-800">{error}</p>
               </div>
             </div>
           )}
@@ -241,12 +237,12 @@ export default function SmartMatchVisualizer() {
           {/* Empty State */}
           {!isLoading && !error && matches.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center space-y-5">
-              <div className="w-20 h-20 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center text-slate-300 shadow-inner">
-                <Package className="w-10 h-10" />
+              <div className="w-16 h-16 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl flex items-center justify-center text-[#C48B3F] shadow-xs">
+                <Package className="w-8 h-8" />
               </div>
               <div>
-                <h4 className="font-display font-black text-slate-900 text-lg">No Matches Found</h4>
-                <p className="text-slate-500 max-w-xs mx-auto mt-2 font-medium text-sm">
+                <h4 className="font-serif font-bold text-[#1C1B18] text-lg">No Matches Found</h4>
+                <p className="text-[#666157] max-w-xs mx-auto mt-2 text-xs">
                   {isDonor
                     ? 'No NGOs currently match your donation criteria. Try again later as NGOs post new needs.'
                     : 'No donations currently match your registered needs. Check back as donors submit new listings.'
@@ -255,7 +251,7 @@ export default function SmartMatchVisualizer() {
               </div>
               <button
                 onClick={() => navigate(isDonor ? '/donor' : '/ngo')}
-                className="px-6 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-sm rounded-xl transition-colors cursor-pointer"
+                className="px-6 py-2.5 bg-[#1C1B18] hover:bg-[#C48B3F] text-white font-medium text-xs rounded-full transition-colors cursor-pointer"
               >
                 Back to Dashboard
               </button>
@@ -273,54 +269,54 @@ export default function SmartMatchVisualizer() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
                     onClick={() => setSelectedMatchIdx(idx)}
-                    className={`border rounded-2xl p-5 transition-all duration-200 cursor-pointer bg-white relative overflow-hidden group ${
+                    className={`border rounded-3xl p-5 transition-all duration-200 cursor-pointer bg-[#F3F0EA] relative overflow-hidden group ${
                       selectedMatchIdx === idx
-                        ? 'border-emerald-300 ring-2 ring-emerald-100 shadow-lg shadow-emerald-100/50'
-                        : 'border-slate-200 hover:border-emerald-200 hover:shadow-md'
+                        ? 'border-[#C48B3F] shadow-md'
+                        : 'border-[#DCD4C8] hover:border-[#C48B3F]'
                     }`}
                   >
                     {selectedMatchIdx === idx && (
-                      <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-[#C48B3F]" />
                     )}
                     
                     <div className="flex justify-between items-start">
                       <div className="space-y-1 min-w-0">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 inline-block">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#C48B3F] bg-[#EAE4DC] px-2.5 py-0.5 rounded-full border border-[#DCD4C8] inline-block">
                           Rank #{idx + 1}
                         </span>
-                        <h4 className="font-display font-black text-sm text-slate-900 truncate">{isNgo ? match.item : match.ngo}</h4>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <h4 className="font-serif font-bold text-sm text-[#1C1B18] truncate">{isNgo ? match.item : match.ngo}</h4>
+                        <p className="text-xs text-[#666157] flex items-center gap-1 font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-[#C48B3F]" />
                           {match.distance > 0 ? `${match.distance} km away` : 'Distance N/A'}
-                          {match.urgency && <> &bull; <span className={`font-bold ${match.urgency === 'High' ? 'text-red-500' : match.urgency === 'Medium' ? 'text-amber-500' : 'text-slate-500'}`}>{match.urgency}</span></>}
+                          {match.urgency && <> &bull; <span className={`font-bold ${match.urgency === 'High' ? 'text-rose-700' : match.urgency === 'Medium' ? 'text-amber-700' : 'text-[#666157]'}`}>{match.urgency}</span></>}
                         </p>
                         {isNgo && (
-                          <p className="text-xs text-slate-400 font-medium">{match.quantity}x {match.category}</p>
+                          <p className="text-xs text-[#666157] font-medium">{match.quantity}x {match.category}</p>
                         )}
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-2xl font-black font-mono text-emerald-600 block">{match.score}%</span>
-                        <span className="text-[10px] text-slate-400 block -mt-1 font-bold uppercase font-mono tracking-wide">Score</span>
+                        <span className="text-2xl font-bold font-serif text-[#C48B3F] block">{match.score}%</span>
+                        <span className="text-[9px] text-[#666157] block -mt-1 font-mono font-bold uppercase tracking-wide">Score</span>
                       </div>
                     </div>
 
                     {/* Score Breakdown Bars */}
-                    <div className="space-y-2 mt-4 pt-3 border-t border-slate-100">
+                    <div className="space-y-2 mt-4 pt-3 border-t border-[#DCD4C8]">
                       {[
-                        { label: 'Category Fit (30%)', value: match.categoryFit, color: 'bg-emerald-500' },
-                        { label: 'Proximity (20%)', value: match.proximityScore, color: 'bg-blue-500' },
-                        { label: 'Urgency (15%)', value: match.urgencyScore, color: 'bg-red-500' },
-                        { label: 'Quantity (15%)', value: match.quantityScore, color: 'bg-amber-500' },
-                        { label: 'Trust Score (10%)', value: match.trustScore, color: 'bg-violet-500' },
-                        { label: 'Freshness (10%)', value: match.freshnessScore, color: 'bg-teal-500' },
+                        { label: 'Category Fit (30%)', value: match.categoryFit, color: 'bg-[#1C1B18]' },
+                        { label: 'Proximity (20%)', value: match.proximityScore, color: 'bg-[#C48B3F]' },
+                        { label: 'Urgency (15%)', value: match.urgencyScore, color: 'bg-rose-800' },
+                        { label: 'Quantity (15%)', value: match.quantityScore, color: 'bg-amber-700' },
+                        { label: 'Trust Score (10%)', value: match.trustScore, color: 'bg-stone-700' },
+                        { label: 'Freshness (10%)', value: match.freshnessScore, color: 'bg-[#666157]' },
                       ].map(bar => (
                         <div key={bar.label}>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-500 font-semibold">{bar.label}</span>
-                            <span className="font-mono font-bold text-slate-700">{bar.value}/100</span>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-[#666157] font-medium">{bar.label}</span>
+                            <span className="font-mono font-bold text-[#1C1B18]">{bar.value}/100</span>
                           </div>
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-0.5">
+                          <div className="w-full bg-[#EAE4DC] h-1.5 rounded-full overflow-hidden mt-0.5 border border-[#DCD4C8]">
                             <div className={`${bar.color} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, bar.value)}%` }} />
                           </div>
                         </div>
@@ -328,7 +324,7 @@ export default function SmartMatchVisualizer() {
                     </div>
 
                     {/* Action Button */}
-                    <div className="flex justify-end pt-3 mt-3 border-t border-slate-100">
+                    <div className="flex justify-end pt-3 mt-3 border-t border-[#DCD4C8]">
                       {isNgo ? (
                         <button
                           disabled={isClaiming}
@@ -336,9 +332,9 @@ export default function SmartMatchVisualizer() {
                             e.stopPropagation();
                             handleClaimDonation(match.donationId);
                           }}
-                          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-md disabled:opacity-50"
+                          className="flex items-center gap-2 px-5 py-2 bg-[#1C1B18] hover:bg-[#C48B3F] text-white font-medium text-xs rounded-full transition-colors cursor-pointer disabled:opacity-50"
                         >
-                          {isClaiming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                          {isClaiming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
                           Claim Donation
                         </button>
                       ) : (
@@ -347,9 +343,9 @@ export default function SmartMatchVisualizer() {
                             e.stopPropagation();
                             navigate(`/request-wizard?category=${encodeURIComponent(match.item)}`);
                           }}
-                          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-md"
+                          className="flex items-center gap-2 px-5 py-2 bg-[#1C1B18] hover:bg-[#C48B3F] text-white font-medium text-xs rounded-full transition-colors cursor-pointer"
                         >
-                          <ArrowRight className="w-4 h-4" /> Select Match Route
+                          <ArrowRight className="w-3.5 h-3.5" /> Select Match Route
                         </button>
                       )}
                     </div>
@@ -361,28 +357,28 @@ export default function SmartMatchVisualizer() {
         </aside>
 
         {/* Right Side Map */}
-        <main className="grow flex-1 relative min-h-87.5 lg:min-h-0 bg-slate-50">
+        <main className="grow flex-1 relative min-h-87.5 lg:min-h-0 bg-[#F3F0EA]">
           <LeafletMap
             center={mapCenter}
-            zoom={12}
+            zoom={hasCoords ? 13 : 5}
             markers={
-              currentMatch
+              hasCoords
                 ? [
                     {
-                      lat: currentMatch.donorPickupLat || mapCenter[0],
-                      lng: currentMatch.donorPickupLng || mapCenter[1],
+                      lat: currentMatch.donorPickupLat,
+                      lng: currentMatch.donorPickupLng,
                       popupContent: <div><b>{isDonor ? 'Your Pickup Point' : 'Donation Pickup'}</b><p className="text-xs text-slate-400">{currentMatch.ngoAddress || 'Location'}</p></div>,
                     },
                   ]
                 : []
             }
             circles={
-              currentMatch
+              hasCoords
                 ? [{
-                    lat: currentMatch.donorPickupLat || mapCenter[0],
-                    lng: currentMatch.donorPickupLng || mapCenter[1],
+                    lat: currentMatch.donorPickupLat,
+                    lng: currentMatch.donorPickupLng,
                     radius: 2000,
-                    color: '#2E7D32',
+                    color: '#C48B3F',
                   }]
                 : []
             }
@@ -394,44 +390,44 @@ export default function SmartMatchVisualizer() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur-md border border-slate-200 p-5 rounded-2xl text-slate-900 max-w-md space-y-3.5 z-10 text-xs shadow-xl"
+              className="absolute bottom-6 left-6 right-6 bg-[#EAE4DC]/95 backdrop-blur-md border border-[#DCD4C8] p-5 rounded-3xl text-[#1C1B18] max-w-md space-y-3.5 z-10 text-xs shadow-xl"
             >
-              <div className="flex justify-between items-center font-bold">
-                <span className="flex items-center gap-1.5 text-emerald-600">
-                  <Navigation className="w-4 h-4 text-emerald-500 animate-pulse" /> Computed Optimization Route
+              <div className="flex justify-between items-center font-serif font-bold">
+                <span className="flex items-center gap-1.5 text-[#C48B3F]">
+                  <Navigation className="w-4 h-4 text-[#C48B3F] animate-pulse" /> Computed Route
                 </span>
-                <span className="font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg text-xs border border-emerald-100">
+                <span className="font-mono text-[#1C1B18] bg-[#F3F0EA] px-2.5 py-1 rounded-full text-xs border border-[#DCD4C8]">
                   {currentMatch.distance > 0 ? `${currentMatch.distance} km` : 'N/A'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-[#666157] leading-relaxed">
                 {isDonor ? (
                   <>
-                    Best match: <strong className="text-slate-800">{currentMatch.ngo}</strong> needs <strong className="text-slate-800">{currentMatch.item}</strong> with{' '}
-                    <strong className="text-emerald-600">{currentMatch.score}%</strong> compatibility score.
+                    Best match: <strong className="text-[#1C1B18]">{currentMatch.ngo}</strong> needs <strong className="text-[#1C1B18]">{currentMatch.item}</strong> with{' '}
+                    <strong className="text-[#C48B3F]">{currentMatch.score}%</strong> compatibility score.
                   </>
                 ) : (
                   <>
-                    Donation: <strong className="text-slate-800">{currentMatch.item}</strong> from{' '}
-                    <strong className="text-slate-800">{currentMatch.ngo}</strong> with{' '}
-                    <strong className="text-emerald-600">{currentMatch.score}%</strong> compatibility score.
+                    Donation: <strong className="text-[#1C1B18]">{currentMatch.item}</strong> from{' '}
+                    <strong className="text-[#1C1B18]">{currentMatch.ngo}</strong> with{' '}
+                    <strong className="text-[#C48B3F]">{currentMatch.score}%</strong> compatibility score.
                   </>
                 )}
               </p>
-              <div className="grid grid-cols-3 gap-2 text-xs text-center pt-2 border-t border-slate-200 font-mono">
+              <div className="grid grid-cols-3 gap-2 text-xs text-center pt-2 border-t border-[#DCD4C8] font-mono">
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] font-bold tracking-wider">Distance</span>
-                  <span className="font-bold text-slate-900">{currentMatch.distance > 0 ? `${currentMatch.distance} km` : '--'}</span>
+                  <span className="text-[#666157] block uppercase text-[9px] font-bold tracking-wider">Distance</span>
+                  <span className="font-bold text-[#1C1B18]">{currentMatch.distance > 0 ? `${currentMatch.distance} km` : '--'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] font-bold tracking-wider">Urgency</span>
-                  <span className={`font-bold ${currentMatch.urgency === 'High' ? 'text-red-600' : currentMatch.urgency === 'Medium' ? 'text-amber-600' : 'text-slate-600'}`}>
+                  <span className="text-[#666157] block uppercase text-[9px] font-bold tracking-wider">Urgency</span>
+                  <span className={`font-bold ${currentMatch.urgency === 'High' ? 'text-rose-700' : currentMatch.urgency === 'Medium' ? 'text-amber-700' : 'text-[#666157]'}`}>
                     {currentMatch.urgency}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block uppercase text-[10px] font-bold tracking-wider">Match Score</span>
-                  <span className="font-bold text-emerald-600">{currentMatch.score}%</span>
+                  <span className="text-[#666157] block uppercase text-[9px] font-bold tracking-wider">Match Score</span>
+                  <span className="font-bold text-[#C48B3F]">{currentMatch.score}%</span>
                 </div>
               </div>
             </motion.div>

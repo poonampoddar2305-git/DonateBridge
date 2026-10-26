@@ -1,47 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Earthy Light Palette */
-  --color-primary: #4A7C59;
-  --color-primary-hover: #3B6647;
-  --color-secondary: #6B9976;
-  --color-accent: #E8F3EC;
-  --color-bg: #F5F1E8;
-  --color-surface: #FFFFFF;
-  --color-ink: #2C352E;
-  --color-ink-muted: #6B7280;
-  --color-border: #E5E0D5;
-  --color-success: #4A7C59;
-  --color-warning: #D4A574;
-  --color-error: #DC2626;
+  --color-cream-100: #F3F0EA;
+  --color-cream-200: #EAE4DC;
+  --color-cream-300: #DCD4C8;
+  --color-darkness-900: #0F0E0C;
+  --color-darkness-800: #191815;
+  --color-darkness-700: #1C1B18;
+  --color-stone-600: #666157;
+  --color-ocher-500: #C48B3F;
+  --color-ocher-400: #D89B48;
+  --color-ocher-600: #A6722E;
 
-  /* Font Families - Clean Inter */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-display: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --color-bg: #F3F0EA;
+  --color-surface: #EAE4DC;
+  --color-ink: #1C1B18;
+  --color-ink-muted: #666157;
+  --color-primary: #1C1B18;
+  --color-primary-hover: #C48B3F;
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Consolas, monospace;
 
-  /* Spacing Scale */
-  --spacing-1: 4px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-5: 24px;
-  --spacing-6: 32px;
-  --spacing-7: 48px;
-  --spacing-8: 64px;
-  --spacing-9: 96px;
-
-  /* Light Soft Shadow scale */
-  --shadow-premium-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-premium-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-premium-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
-
-  /* Clean Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 }
 
 *,
@@ -52,9 +39,9 @@
 
 body {
   margin: 0;
-  font-family: var(--font-sans);
-  background-color: var(--color-bg);
-  color: var(--color-ink);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #F3F0EA;
+  color: #1C1B18;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -63,80 +50,22 @@ body {
 h1,
 h2,
 h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  color: var(--color-ink);
+.font-serif-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  color: #1C1B18;
 }
 
-/* Custom premium styles */
-.saas-card {
-  background-color: var(--color-surface);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-6);
-  box-shadow: var(--shadow-premium-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+/* Custom warm card styling */
+.saas-card, .db-card {
+  background-color: #EAE4DC;
+  border: 1px solid #DCD4C8;
+  border-radius: 18px;
+  padding: 24px;
+  transition: all 0.2s ease-in-out;
 }
 
-.saas-card:hover {
-  box-shadow: var(--shadow-premium-md);
-  border-color: rgba(5, 150, 105, 0.2);
-}
-
-.db-card {
-  background-color: var(--color-surface);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-5);
-  box-shadow: var(--shadow-premium-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.db-card:hover {
-  box-shadow: var(--shadow-premium-md);
-  border-color: rgba(5, 150, 105, 0.2);
-}
-
-/* Accessibility settings */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--color-primary) !important;
-  outline-offset: 2px;
-}
-
-/* Clean, lightweight subtle animations */
-.animate-fadeInUp {
-  animation: fadeInUp 0.2s ease-out both;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  *,
-  ::before,
-  ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+.saas-card:hover, .db-card:hover {
+  border-color: #C48B3F;
 }
 
 /* Custom Scrollbar */
@@ -146,145 +75,85 @@ textarea:focus-visible {
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #F3F0EA;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: #DCD4C8;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #C48B3F;
 }
 
 ::selection {
-  background-color: var(--color-primary);
-  color: var(--color-surface);
+  background-color: #C48B3F;
+  color: #FFFFFF;
 }
 
-/* Leaflet maps global customization */
+/* Focus states */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #C48B3F !important;
+  outline-offset: 2px;
+}
+
+/* Leaflet maps custom warm theme */
 .leaflet-container {
-  font-family: var(--font-sans);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-premium-md);
-  border: 1px solid var(--color-border);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  border-radius: 18px;
+  border: 1px solid #DCD4C8;
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-premium-lg) !important;
-  border: 1px solid var(--color-border) !important;
-  padding: 0px !important;
+  background-color: #F3F0EA !important;
+  color: #1C1B18 !important;
+  border-radius: 12px !important;
+  border: 1px solid #DCD4C8 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
 }
 
 .leaflet-popup-content {
   margin: 12px !important;
-  line-height: 1.4 !important;
+  line-height: 1.5 !important;
 }
 
-.leaflet-bar {
-  border: 1px solid var(--color-border) !important;
-  box-shadow: var(--shadow-premium-sm) !important;
-  border-radius: var(--radius-sm) !important;
+/* Custom Pill Button Utilities */
+.btn-pill-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: #1C1B18;
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.75rem 1.75rem;
+  transition: all 0.3s ease;
 }
 
-.leaflet-bar a {
-  background-color: var(--color-surface) !important;
-  color: var(--color-ink) !important;
-  border-bottom: 1px solid var(--color-border) !important;
+.btn-pill-primary:hover {
+  background-color: #C48B3F;
+  transform: translateY(-1px);
 }
 
-.leaflet-bar a:hover {
-  background-color: var(--color-bg) !important;
+.btn-pill-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid #1C1B18;
+  color: #1C1B18;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.5rem;
+  transition: all 0.3s ease;
 }
 
-/* Global Sizing & Typography Overrides */
-h1,
-.page-title {
-  font-size: 36px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.025em;
-}
-
-h2,
-.section-heading {
-  font-size: 26px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em;
-}
-
-h3,
-.card-title {
-  font-size: 20px !important;
-  font-weight: 600 !important;
-}
-
-p,
-span,
-div,
-li,
-td,
-.text-normal {
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.text-normal-lg {
-  font-size: 18px;
-  line-height: 1.7;
-}
-
-/* Button & Input Sizing (48px Heights & 16px Font Sizes) */
-input,
-select,
-textarea,
-.input-tall {
-  font-size: 16px !important;
-  min-height: 48px !important;
-  border-radius: var(--radius-lg) !important;
-}
-
-input[type="range"] {
-  min-height: auto !important;
-  height: auto !important;
-  background: transparent !important;
-}
-
-button,
-.btn-tall {
-  font-size: 16px !important;
-  min-height: 48px !important;
-  border-radius: var(--radius-lg) !important;
-}
-
-table,
-th,
-td {
-  font-size: 16px !important;
-}
-
-/* Increase card spacings */
-.grid-gap-large {
-  gap: 24px !important;
-}
-
-.saas-card {
-  padding: 28px !important;
-  margin-bottom: 24px;
-}
-
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-\\[shimmer_2s_infinite\\] {
-  animation: shimmer 2s infinite linear;
+.btn-pill-secondary:hover {
+  background-color: #EAE4DC;
 }

@@ -8,6 +8,7 @@ class NotificationType(models.TextChoices):
     DELIVERY = 'delivery', 'Delivery Status'
     SECURITY = 'security', 'Security Alert'
     MATCH = 'match', 'Donation Match'
+    CHAT = 'chat', 'Chat Message'
 
 class Notification(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')

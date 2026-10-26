@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { io } from 'socket.io-client';
 import { useToast } from '../components/ui/Toast';
 
 // Create isolated contexts
@@ -83,10 +82,14 @@ export const GlobalStateProvider = ({ children }) => {
       email: userData.email,
       role: userData.role,
       avatar: userData.avatar || '👤',
-      verificationStatus: ngoDetails?.verification_status || null,
-      rejectionReason: ngoDetails?.rejection_reason || '',
+      verificationStatus: ngoDetails?.verification_status || userData.profile?.verification_status || userData.verificationStatus || null,
+      rejectionReason: ngoDetails?.rejection_reason || userData.profile?.rejection_reason || userData.rejectionReason || '',
       trustScore: ngoDetails?.trust_score || null,
       ngoId: ngoDetails?.id || null,
+      aadhaarNumber: userData.profile?.aadhaar_number || null,
+      panNumber: userData.profile?.pan_number || null,
+      aadhaarDoc: userData.profile?.aadhaar_doc || null,
+      panDoc: userData.profile?.pan_doc || null,
     };
     clearAuthMessage();
     setUser(userToStore);
@@ -123,6 +126,12 @@ export const GlobalStateProvider = ({ children }) => {
         name: res.data.username || user?.name,
         email: res.data.email,
         avatar: res.data.avatar,
+        verificationStatus: res.data.profile?.verification_status || user?.verificationStatus,
+        rejectionReason: res.data.profile?.rejection_reason || user?.rejectionReason,
+        aadhaarNumber: res.data.profile?.aadhaar_number || user?.aadhaarNumber,
+        panNumber: res.data.profile?.pan_number || user?.panNumber,
+        aadhaarDoc: res.data.profile?.aadhaar_doc || user?.aadhaarDoc,
+        panDoc: res.data.profile?.pan_doc || user?.panDoc,
       };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -241,24 +250,66 @@ export const GlobalStateProvider = ({ children }) => {
       });
   }, [token]);
 
-  // Attempt Socket.IO connection for real-time updates
+  // Real-time WebSocket connection for user notifications
   useEffect(() => {
-    // Disabled since backend does not use WebSockets/Channels right now
-    /*
-    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8000';
-    const socketInstance = io(wsUrl, {
-      autoConnect: false,
-      reconnectionAttempts: 3,
-      timeout: 5000,
-    });
-    socketInstance.connect();
-    Promise.resolve().then(() => setSocket(socketInstance));
+    if (!token || !user) return;
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const wsProtocol = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+    const host = apiBase.replace(/^https?:\/\//, '');
+
+    let ws = null;
+    let reconnectTimeout = null;
+    let attempts = 0;
+
+    const connectWs = () => {
+      const activeToken = localStorage.getItem('token') || token;
+      if (!activeToken) return;
+      const wsUrl = `${wsProtocol}//${host}/ws/notifications/?token=${encodeURIComponent(activeToken)}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        attempts = 0;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'notification' && data.notification) {
+            const n = data.notification;
+            const mapped = {
+              id: n.id,
+              type: n.notification_type,
+              message: n.message,
+              title: n.title,
+              time: new Date(n.created_at || Date.now()).toLocaleString(),
+              read: n.is_read || false,
+            };
+            setNotifications((prev) => [mapped, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+            toast.info(`🔔 ${n.title}: ${n.message}`);
+          }
+        } catch (err) {
+          console.error("Failed to parse WebSocket notification:", err);
+        }
+      };
+
+      ws.onclose = (event) => {
+        if (event.code !== 4001 && event.code !== 4003 && attempts < 5) {
+          attempts += 1;
+          const delay = Math.min(1000 * Math.pow(2, attempts), 10000);
+          reconnectTimeout = setTimeout(connectWs, delay);
+        }
+      };
+    };
+
+    connectWs();
 
     return () => {
-      socketInstance.disconnect();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
     };
-    */
-  }, []);
+  }, [token, user, toast]);
 
   const markAllRead = useCallback(async () => {
     try {
@@ -273,7 +324,10 @@ export const GlobalStateProvider = ({ children }) => {
   const addNotification = useCallback((n) => {
     setNotifications((prev) => [n, ...prev]);
     setUnreadCount((prev) => prev + 1);
-  }, []);
+    if (n.title || n.message) {
+      toast.info(`🔔 ${n.title || 'Notification'}: ${n.message || ''}`);
+    }
+  }, [toast]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

@@ -14,7 +14,7 @@ export const InputField = React.forwardRef(({
       {label && (
         <label
           htmlFor={id}
-          className="text-sm font-medium text-slate-600 ml-1 mb-0.5"
+          className="text-xs font-semibold uppercase tracking-wider text-[#1C1B18] ml-0.5 mb-0.5"
         >
           {label}
         </label>
@@ -25,8 +25,8 @@ export const InputField = React.forwardRef(({
         type={type}
         aria-invalid={error ? 'true' : 'false'}
         aria-describedby={error ? `${id}-error` : helperText ? `${id}-helper` : undefined}
-        className={`w-full border border-slate-300 rounded-md px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-sm text-slate-900 bg-white placeholder-slate-400 ${
-          error ? 'ring-2 ring-rose-500 border-transparent' : ''
+        className={`w-full border border-[#DCD4C8] rounded-xl px-4 py-3 focus:outline-none focus:border-[#C48B3F] transition-all duration-200 text-xs text-[#1C1B18] bg-[#F3F0EA] placeholder-[#666157] ${
+          error ? 'border-rose-500 ring-1 ring-rose-500' : ''
         }`}
         {...props}
       />
@@ -34,7 +34,7 @@ export const InputField = React.forwardRef(({
         <span
           id={`${id}-error`}
           role="alert"
-          className="text-xs font-medium text-red-500 mt-0.5"
+          className="text-xs font-medium text-rose-600 mt-0.5"
         >
           {error.message || error}
         </span>
@@ -42,7 +42,7 @@ export const InputField = React.forwardRef(({
       {!error && helperText && (
         <span
           id={`${id}-helper`}
-          className="text-xs text-slate-500 mt-0.5"
+          className="text-xs text-[#666157] mt-0.5"
         >
           {helperText}
         </span>

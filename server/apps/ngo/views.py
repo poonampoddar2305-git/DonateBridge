@@ -28,13 +28,19 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 
 def get_distance_km(lat1, lon1, lat2, lon2):
-    R = 6371.0 # Radius of the Earth in km
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2.0) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2.0) ** 2)
-    c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
-    return R * c
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+        return 999.0
+    try:
+        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
+        R = 6371.0 # Radius of the Earth in km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2.0) ** 2 +
+             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2.0) ** 2)
+        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+        return R * c
+    except (TypeError, ValueError):
+        return 999.0
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -46,7 +52,17 @@ class IsNgoUserOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.is_authenticated and request.user.role == 'ngo'
+        return request.user.is_authenticated and (request.user.role == 'ngo' or request.user.role == 'admin')
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or getattr(request.user, 'role', '') == 'admin':
+            return True
+        ngo = getattr(request.user, 'ngo_details', None)
+        return ngo is not None and getattr(obj, 'ngo', None) == ngo
 
 class NGORegisterView(generics.CreateAPIView):
     serializer_class = NGORegistrationSerializer
@@ -57,7 +73,26 @@ class NGORegisterView(generics.CreateAPIView):
             return Response({"error": "User role must be NGO to register organization detail"}, status=status.HTTP_403_FORBIDDEN)
         
         if hasattr(request.user, 'ngo_details'):
-            return Response({"error": "NGO details already registered for this user"}, status=status.HTTP_400_BAD_REQUEST)
+            existing_ngo = request.user.ngo_details
+            if existing_ngo.verification_status == 'approved':
+                return Response({"error": "NGO registration is already approved."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            serializer = self.get_serializer(existing_ngo, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            ngo = serializer.save()
+            
+            from notification.models import Notification, NotificationType
+            Notification.objects.create(
+                user=request.user,
+                notification_type=NotificationType.SECURITY,
+                title="NGO Verification Resubmitted",
+                message=f"Your updated NGO registration for '{ngo.name}' has been resubmitted and is pending admin audit."
+            )
+            
+            data = NGODetailsSerializer(ngo).data
+            data["message"] = "NGO registration submitted for verification"
+            data["verification_status"] = ngo.verification_status
+            return Response(data, status=status.HTTP_200_OK)
             
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -71,7 +106,10 @@ class NGORegisterView(generics.CreateAPIView):
             message=f"Your NGO registration for '{ngo.name}' has been submitted and is pending admin audit."
         )
         
-        return Response(NGODetailsSerializer(ngo).data, status=status.HTTP_201_CREATED)
+        data = NGODetailsSerializer(ngo).data
+        data["message"] = "NGO registration submitted for verification"
+        data["verification_status"] = ngo.verification_status
+        return Response(data, status=status.HTTP_201_CREATED)
 
 class NGOListView(generics.ListAPIView):
     serializer_class = NGODetailsSerializer
@@ -120,6 +158,16 @@ class NGODetailsView(generics.RetrieveAPIView):
     queryset = NGO.objects.prefetch_related('documents', 'reviews', 'needs').all()
     serializer_class = NGODetailsSerializer
     permission_classes = (permissions.AllowAny,)
+
+    def get_object(self):
+        ngo = super().get_object()
+        user = self.request.user
+        if user.is_authenticated and (user.role == 'admin' or ngo.user == user):
+            return ngo
+        if ngo.verification_status != 'approved':
+            from rest_framework.exceptions import NotFound
+            raise NotFound("NGO profile not found or not yet verified.")
+        return ngo
 
 class NGODetailsCurrentUserView(generics.RetrieveAPIView):
     """Returns the NGO profile of the currently authenticated NGO user."""
@@ -216,7 +264,7 @@ class NGOAnalyticsView(APIView):
 
 class NeedViewSet(viewsets.ModelViewSet):
     serializer_class = NeedSerializer
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsNgoUserOrReadOnly,)
 
     def get_queryset(self):
         ngo_id = self.request.query_params.get('ngo_id')

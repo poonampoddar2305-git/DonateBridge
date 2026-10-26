@@ -1,5 +1,6 @@
 import math
 import random
+import secrets
 from datetime import datetime
 from django.utils import timezone as django_timezone
 from rest_framework import status, permissions, generics, viewsets
@@ -67,9 +68,24 @@ def calculate_match_score(donation, need, ngo):
         "distance": round(dist, 1)
     }
 
+class IsDonorOwnerOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or getattr(request.user, 'role', '') == 'admin':
+            return True
+        return obj.donor == request.user
+
 class DonationViewSet(viewsets.ModelViewSet):
     queryset = Donation.objects.select_related('donor', 'matched_ngo').prefetch_related('photos')
-    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsDonorOwnerOrReadOnly,)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -160,11 +176,6 @@ class DonationViewSet(viewsets.ModelViewSet):
                 donation.matched_ngo = matching_need.ngo
                 donation.status = 'MATCHED'
                 donation.save()
-
-            matching_need.fulfilled_quantity += donation.quantity
-            if matching_need.fulfilled_quantity >= matching_need.quantity:
-                matching_need.status = 'FULFILLED'
-            matching_need.save()
             
             # Send real-time notification to the relevant NGO owner
             try:
@@ -215,10 +226,6 @@ class DonationViewSet(viewsets.ModelViewSet):
         if matching_need:
             score_breakdown = calculate_match_score(donation, matching_need, ngo)
             score = score_breakdown['total']
-            matching_need.fulfilled_quantity += donation.quantity
-            if matching_need.fulfilled_quantity >= matching_need.quantity:
-                matching_need.status = 'FULFILLED'
-            matching_need.save()
             
         donation.status = 'MATCHED'
         donation.matched_ngo = ngo
@@ -239,7 +246,7 @@ class DonationViewSet(viewsets.ModelViewSet):
             print("[Notification Error]", e)
         
         # Generate logistics job with verification QR code token
-        verify_token = f"VERIFY-{random.randint(100000, 999999)}-{donation.id}"
+        verify_token = f"DB-VERIFY-{donation.id}-{secrets.token_hex(12).upper()}"
         logistics_job, _ = LogisticsJob.objects.get_or_create(
             donation=donation,
             defaults={

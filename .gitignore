@@ -7,10 +7,15 @@ client/*.local
 # Backend
 server/__pycache__/
 server/*.pyc
+.env
 server/.env
 server/media/uploads/
 server/db.sqlite3
+*.sqlite3
 server/.venv/
+server/pgdata/
+
+
 
 # Editor / System directories and files
 .vscode/*

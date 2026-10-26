@@ -18,7 +18,6 @@ import {
 import { Button } from '../components/ui/Button';
 
 const CATEGORIES = ['All', 'Books', 'Clothes', 'Food', 'Furniture', 'Electronics', 'Medical Equipment', 'School Supplies', 'Blankets', 'Sports Equipment'];
-const DEFAULT_COORDS = [21.1458, 79.0882]; // Default location
 
 export default function SearchDirectory() {
   const { search } = useLocation();
@@ -61,23 +60,70 @@ export default function SearchDirectory() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // User Coords State
-  const [userCoords, setUserCoords] = useState(DEFAULT_COORDS);
-  const [coordsLoaded, setCoordsLoaded] = useState(false);
+  // User Coords State - No predefined location
+  const [userCoords, setUserCoords] = useState(null);
+  const [userAddress, setUserAddress] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
+  const [manualCity, setManualCity] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserCoords([pos.coords.latitude, pos.coords.longitude]);
-          setCoordsLoaded(true);
-        },
-        () => setCoordsLoaded(true)
-      );
-    } else {
-      setCoordsLoaded(true);
+  const handlePullLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser.');
+      setShowManualInput(true);
+      return;
     }
-  }, []);
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserCoords([lat, lng]);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          const city = data.address?.city || data.address?.town || data.address?.suburb || data.address?.state_district || 'Detected Location';
+          setUserAddress(city);
+          toast.success(`Location detected: ${city}`);
+        } catch {
+          setUserAddress(`${lat.toFixed(3)}, ${lng.toFixed(3)}`);
+          toast.success('Coordinates pulled successfully.');
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (err) => {
+        setIsLocating(false);
+        toast.error('Could not detect location. Please enter city manually.');
+        setShowManualInput(true);
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  };
+
+  const handleManualLocationSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!manualCity.trim()) return;
+    setIsLocating(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(manualCity.trim())}&limit=1`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        setUserCoords([lat, lng]);
+        setUserAddress(data[0].display_name.split(',')[0]);
+        toast.success(`Location set to ${data[0].display_name.split(',')[0]}`);
+        setShowManualInput(false);
+      } else {
+        toast.error(`Could not find "${manualCity}". Try another city name.`);
+      }
+    } catch {
+      toast.error('Geocoding search failed. Please try again.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('db_wishlist', JSON.stringify(wishlist));
@@ -85,7 +131,7 @@ export default function SearchDirectory() {
 
   // Server-side filter trigger with 400ms debounce (no duplicate request spam)
   useEffect(() => {
-    if (!coordsLoaded) return;
+    if (!userCoords) return;
 
     const timer = setTimeout(() => {
       const params = {};
@@ -104,11 +150,11 @@ export default function SearchDirectory() {
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [query, selectedCategory, distanceRange, minTrustScore, searchType, userCoords, coordsLoaded]);
+  }, [query, selectedCategory, distanceRange, minTrustScore, searchType, userCoords]);
 
   // Dynamic Route calculation when selected item changes
   useEffect(() => {
-    if (!selectedItem) {
+    if (!selectedItem || !userCoords) {
       setRouteData(null);
       return;
     }
@@ -157,6 +203,10 @@ export default function SearchDirectory() {
 
   // Filter and sort items list
   const displayItems = useMemo(() => {
+    if (!userCoords) {
+      return [];
+    }
+
     let raw = searchType === 'donations' ? donations : ngos;
 
     if (searchType === 'donations') {
@@ -187,7 +237,7 @@ export default function SearchDirectory() {
     let list = raw.map(item => {
       const lat = item.location ? item.location.lat : item.lat;
       const lng = item.location ? item.location.lng : item.lng;
-      const dist = lat && lng ? getDistanceInKm(userCoords[0], userCoords[1], lat, lng) : 999;
+      const dist = (lat && lng) ? getDistanceInKm(userCoords[0], userCoords[1], lat, lng) : 999;
       const match = searchType === 'donations' ? getSmartMatchDetails(item) : null;
       return {
         ...item,
@@ -268,10 +318,10 @@ export default function SearchDirectory() {
   // Build Leaflet map data
   const mapCenter = selectedItem
     ? [selectedItem.location ? selectedItem.location.lat : selectedItem.lat, selectedItem.location ? selectedItem.location.lng : selectedItem.lng]
-    : userCoords;
+    : (userCoords || [20.5937, 78.9629]);
 
   const mapMarkers = [
-    { lat: userCoords[0], lng: userCoords[1], popupContent: '<strong style="color:#4A7C59">Your Location</strong>' },
+    ...(userCoords ? [{ lat: userCoords[0], lng: userCoords[1], popupContent: '<strong style="color:#4A7C59">Your Location</strong>' }] : []),
     ...displayItems.map(item => {
       const lat = item.location ? item.location.lat : item.lat;
       const lng = item.location ? item.location.lng : item.lng;
@@ -284,58 +334,58 @@ export default function SearchDirectory() {
     }).filter(m => m.lat && m.lng)
   ];
 
-  const mapPolylines = routeData && routeData.coordinates ? [{
+  const mapPolylines = (routeData && routeData.coordinates) ? [{
     positions: routeData.coordinates,
     color: '#4A7C59',
     weight: 4,
     dashArray: routeData.isFallback ? '5, 5' : null
-  }] : hoveredItemId ? (() => {
+  }] : (hoveredItemId && userCoords) ? (() => {
     const item = displayItems.find(i => i.id === hoveredItemId);
     const lat = item?.location ? item.location.lat : item?.lat;
     const lng = item?.location ? item.location.lng : item?.lng;
     return lat && lng ? [{ positions: [userCoords, [lat, lng]], color: '#4A7C59', weight: 2, dashArray: '5, 5' }] : [];
   })() : [];
 
-  const mapCircles = [{ lat: userCoords[0], lng: userCoords[1], radius: distanceRange * 1000, color: '#4A7C59', fillOpacity: 0.05, weight: 1.5 }];
+  const mapCircles = userCoords ? [{ lat: userCoords[0], lng: userCoords[1], radius: distanceRange * 1000, color: '#4A7C59', fillOpacity: 0.05, weight: 1.5 }] : [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] font-sans text-[#1C1B18]">
       <Navbar />
 
       {/* Main Page Header */}
-      <div className="bg-white border-b border-stone-200 pt-8 pb-6">
+      <div className="bg-[#EAE4DC] border-b border-[#DCD4C8] pt-24 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 text-left">
           
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-accent text-[#4A7C59] border border-[#4A7C59]/20 text-xs font-semibold uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8] text-xs font-mono font-bold uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" /> Resource Directory &amp; Radar
               </span>
-              <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight mt-2">
+              <h1 className="text-2xl sm:text-4xl font-serif font-bold text-[#1C1B18] tracking-tight mt-2">
                 Discover Local Dispatches &amp; NGO Partners
               </h1>
-              <p className="text-sm text-stone-500 mt-1">
+              <p className="text-sm text-[#666157] mt-1">
                 Explore physical supply dispatches, verify regional NGOs, and view interactive route mapping.
               </p>
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="flex bg-stone-100 p-1.5 rounded-xl border border-stone-200 shrink-0">
+            <div className="flex bg-[#F3F0EA] p-1.5 rounded-full border border-[#DCD4C8] shrink-0">
               <button
                 onClick={() => { setSearchType('donations'); setSelectedItem(null); setRouteData(null); }}
-                className={`py-2 px-4 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                  searchType === 'donations' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'
+                className={`py-2 px-5 text-xs font-medium rounded-full transition-all cursor-pointer flex items-center gap-2 ${
+                  searchType === 'donations' ? 'bg-[#1C1B18] text-white shadow-xs' : 'text-[#666157] hover:text-[#1C1B18]'
                 }`}
               >
-                <Search className={`w-3.5 h-3.5 ${searchType === 'donations' ? 'text-[#4A7C59]' : ''}`} /> Scan Donations
+                <Search className={`w-3.5 h-3.5 ${searchType === 'donations' ? 'text-[#C48B3F]' : ''}`} /> Scan Donations
               </button>
               <button
                 onClick={() => { setSearchType('ngos'); setSelectedItem(null); setRouteData(null); }}
-                className={`py-2 px-4 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                  searchType === 'ngos' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-800'
+                className={`py-2 px-5 text-xs font-medium rounded-full transition-all cursor-pointer flex items-center gap-2 ${
+                  searchType === 'ngos' ? 'bg-[#1C1B18] text-white shadow-xs' : 'text-[#666157] hover:text-[#1C1B18]'
                 }`}
               >
-                <Building className={`w-3.5 h-3.5 ${searchType === 'ngos' ? 'text-[#4A7C59]' : ''}`} /> Partner NGOs
+                <Building className={`w-3.5 h-3.5 ${searchType === 'ngos' ? 'text-[#C48B3F]' : ''}`} /> Partner NGOs
               </button>
             </div>
           </div>
@@ -343,6 +393,59 @@ export default function SearchDirectory() {
           {/* Integrated Filter Bar */}
           <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 space-y-4">
             
+            {/* Dynamic Location Puller Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-stone-200">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#4A7C59] shrink-0" />
+                <span className="text-xs font-semibold text-stone-800">
+                  {userCoords ? (
+                    <>Current Area: <span className="text-[#4A7C59] font-bold">{userAddress || `${userCoords[0].toFixed(3)}, ${userCoords[1].toFixed(3)}`}</span></>
+                  ) : (
+                    <span className="text-amber-700 font-bold">Location Not Set (Pull location to discover nearby items)</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handlePullLocation}
+                  disabled={isLocating}
+                  className="px-3 py-1.5 bg-[#1C1B18] hover:bg-[#4A7C59] text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Navigation className={`w-3.5 h-3.5 text-[#C48B3F] ${isLocating ? 'animate-spin' : ''}`} />
+                  {isLocating ? 'Detecting...' : (userCoords ? 'Re-pull GPS' : 'Pull Location')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowManualInput(!showManualInput)}
+                  className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                >
+                  {showManualInput ? 'Close Search' : 'Search City'}
+                </button>
+              </div>
+            </div>
+
+            {showManualInput && (
+              <form onSubmit={handleManualLocationSubmit} className="flex gap-2 p-2 bg-white rounded-lg border border-stone-200">
+                <input
+                  type="text"
+                  value={manualCity}
+                  onChange={(e) => setManualCity(e.target.value)}
+                  placeholder="Enter city or area (e.g. Pune, Mumbai, Delhi)..."
+                  className="flex-1 bg-stone-50 border border-stone-300 rounded-md px-3 py-1.5 text-xs text-stone-900 outline-none focus:border-[#4A7C59]"
+                />
+                <button
+                  type="submit"
+                  disabled={isLocating || !manualCity.trim()}
+                  className="px-4 py-1.5 bg-[#4A7C59] hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Locate
+                </button>
+              </form>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               {/* Search Bar */}
               <div className="relative md:col-span-5 lg:col-span-6">
@@ -670,13 +773,43 @@ export default function SearchDirectory() {
                   );
                 })}
               </div>
+            ) : !userCoords ? (
+              /* Location Not Set State */
+              <div className="bg-white border-2 border-dashed border-[#DCD4C8] rounded-2xl p-10 text-center space-y-4">
+                <div className="w-14 h-14 rounded-full bg-[#F3F0EA] border border-[#DCD4C8] text-[#4A7C59] flex items-center justify-center mx-auto">
+                  <MapPin className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-serif font-bold text-stone-900 text-lg">Location Not Set</h4>
+                  <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                    No predefined location is set. Pull your GPS location or search your city to discover nearby verified donations and NGO partners.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <Button
+                    onClick={handlePullLocation}
+                    disabled={isLocating}
+                    className="bg-[#1C1B18] hover:bg-[#4A7C59] text-white text-xs font-semibold py-2.5 px-5 rounded-full flex items-center gap-2 cursor-pointer"
+                  >
+                    <Navigation className={`w-4 h-4 text-[#C48B3F] ${isLocating ? 'animate-spin' : ''}`} />
+                    {isLocating ? 'Detecting Location...' : 'Pull My Current Location'}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualInput(!showManualInput)}
+                    className="px-4 py-2.5 rounded-full border border-stone-300 hover:border-stone-500 text-xs font-semibold text-stone-700 transition-colors cursor-pointer"
+                  >
+                    {showManualInput ? 'Close Manual Search' : 'Enter City Manually'}
+                  </button>
+                </div>
+              </div>
             ) : (
-              /* Empty State */
+              /* Empty State when location is pulled but nothing nearby */
               <div className="bg-white border border-stone-200 rounded-xl p-10 text-center space-y-3">
                 <Search className="w-8 h-8 text-stone-400 mx-auto" />
-                <h4 className="font-bold text-stone-800 text-base">No items found matching your filters</h4>
-                <p className="text-xs text-stone-500 max-w-xs mx-auto">
-                  Try adjusting radius distance or selecting "All" categories.
+                <h4 className="font-bold text-stone-800 text-base">No active demands in this area</h4>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                  No verified {searchType === 'donations' ? 'donations' : 'NGO partners'} were found within {distanceRange} km of {userAddress || 'your location'}. Try increasing the search radius or selecting "All" categories.
                 </p>
                 <Button onClick={resetFilters} variant="secondary" className="text-xs font-bold py-2 px-4">
                   Reset Filters

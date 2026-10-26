@@ -112,16 +112,21 @@ export default function UserProfile() {
   // Save updated profile details to backend
   const handleSaveProfile = async (e) => {
     if (e) e.preventDefault();
+    if (profilePhone && !/^[6-9]\d{9}$/.test(profilePhone.trim())) {
+      toast.error('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
+      return;
+    }
     setIsSaving(true);
     try {
       const updatedRes = await authAPI.updateMe({
         name: profileName,
-        phone: profilePhone,
+        phone: profilePhone ? profilePhone.trim() : '',
         address: profileLocation,
         location: profileLocation,
         avatar: selectedAvatar,
         mfa_enabled: mfaEnabled,
       });
+
 
       if (updatedRes?.data) {
         const freshUser = {
@@ -183,18 +188,18 @@ export default function UserProfile() {
   const userLevel = Math.min(5, Math.floor(myDonations.length / 3) + 1);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-800 font-sans selection:bg-[#4A7C59]/20">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] text-[#1C1B18] font-sans">
       <Navbar />
 
-      <main className="grow max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pt-24 space-y-6">
+      <main className="grow max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pt-24 space-y-6 text-left">
         
         {/* HEADER SECTION */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DCD4C8] pb-5">
           <div className="space-y-1">
-            <h1 className="font-display font-black text-2xl md:text-3xl text-slate-900 tracking-tight">
+            <h1 className="font-serif font-bold text-2xl md:text-3xl text-[#1C1B18] tracking-tight">
               My Profile &amp; Settings
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-xs text-[#666157] font-medium">
               View your account details, manage security preferences, and track your contribution history.
             </p>
           </div>
@@ -203,14 +208,14 @@ export default function UserProfile() {
             <button 
               onClick={loadUserData}
               disabled={loadingProfile}
-              className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-[#EAE4DC] border border-[#DCD4C8] hover:bg-[#DCD4C8] text-[#1C1B18] px-4 py-2 rounded-full text-xs font-medium transition-all shadow-xs cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingProfile ? 'animate-spin' : ''}`} /> Refresh
             </button>
             
             <button 
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-4 py-2 rounded-full text-xs font-medium transition-all cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" /> Sign Out
             </button>
@@ -220,27 +225,27 @@ export default function UserProfile() {
         {/* 2-COLUMN MAIN CONTENT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* LEFT COLUMN: PROFILE (READ-ONLY BY DEFAULT, EDITABLE ON CLICK) & SECURITY */}
+          {/* LEFT COLUMN: PROFILE & SECURITY */}
           <div className="lg:col-span-7 space-y-6">
             
             {/* Personal Details Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+            <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 shadow-xs space-y-6">
+              <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-4">
+                <h3 className="font-serif font-bold text-[#1C1B18] text-lg flex items-center gap-2">
                   Personal Details
                 </h3>
 
                 {!isEditing ? (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="inline-flex items-center gap-1.5 bg-[#4A7C59] hover:bg-primary-hover text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                    className="inline-flex items-center gap-1.5 bg-[#1C1B18] hover:bg-[#C48B3F] text-white px-4 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer shadow-xs"
                   >
                     <Edit2 className="w-3.5 h-3.5" /> Edit Profile
                   </button>
                 ) : (
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1 bg-[#F3F0EA] hover:bg-[#DCD4C8] text-[#1C1B18] px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border border-[#DCD4C8]"
                   >
                     <X className="w-3.5 h-3.5" /> Cancel
                   </button>
@@ -255,74 +260,73 @@ export default function UserProfile() {
                     <img
                       src={selectedAvatar}
                       alt="Profile Avatar"
-                      className="w-20 h-20 rounded-2xl object-cover border-2 border-[#4A7C59]/30 bg-slate-50 shadow-sm"
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-[#C48B3F]/40 bg-[#F3F0EA] shadow-xs"
                       onError={(e) => { e.target.src = AVATAR_PRESETS[0].url; }}
                     />
                     <div className="space-y-1">
-                      <h4 className="font-extrabold text-slate-900 text-xl tracking-tight">
+                      <h4 className="font-serif font-bold text-[#1C1B18] text-xl tracking-tight">
                         {profileName || 'Member User'}
                       </h4>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A7C59] bg-accent px-2.5 py-0.5 rounded-full border border-[#4A7C59]/20">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#C48B3F] bg-[#F3F0EA] px-3 py-0.5 rounded-full border border-[#DCD4C8]">
                           {user?.role || 'Donor'}
                         </span>
-                        <span className="text-slate-400 text-xs flex items-center gap-1 font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#4A7C59]" /> Account Verified
+                        <span className="text-[#666157] text-xs flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#C48B3F]" /> Account Verified
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Info Table Rows */}
-                  <div className="space-y-3 pt-2 text-sm border-t border-slate-100">
-                    <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium text-xs flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-slate-400" /> Account Email
+                  <div className="space-y-3 pt-2 text-sm border-t border-[#DCD4C8]">
+                    <div className="flex items-center justify-between py-2 border-b border-[#DCD4C8]/50">
+                      <span className="text-[#666157] font-medium text-xs flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-[#C48B3F]" /> Account Email
                       </span>
-                      <span className="font-bold text-slate-800 text-xs font-mono">{user?.email}</span>
+                      <span className="font-bold text-[#1C1B18] text-xs font-mono">{user?.email}</span>
                     </div>
 
-                    <div className="flex items-center justify-between py-2 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium text-xs flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-slate-400" /> Contact Telephone
+                    <div className="flex items-center justify-between py-2 border-b border-[#DCD4C8]/50">
+                      <span className="text-[#666157] font-medium text-xs flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-[#C48B3F]" /> Contact Telephone
                       </span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {profilePhone || <span className="text-slate-400 italic">Not provided</span>}
+                      <span className="font-bold text-[#1C1B18] text-xs">
+                        {profilePhone || <span className="text-[#666157] italic">Not provided</span>}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between py-2">
-                      <span className="text-slate-500 font-medium text-xs flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-slate-400" /> Primary Location
+                      <span className="text-[#666157] font-medium text-xs flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#C48B3F]" /> Primary Location
                       </span>
-                      <span className="font-bold text-slate-800 text-xs">
-                        {profileLocation || <span className="text-slate-400 italic">Not provided</span>}
+                      <span className="font-bold text-[#1C1B18] text-xs">
+                        {profileLocation || <span className="text-[#666157] italic">Not provided</span>}
                       </span>
                     </div>
                   </div>
                 </div>
               ) : (
-                /* EDIT FORM VIEW (SHOWN ONLY WHEN isEditing === true) */
+                /* EDIT FORM VIEW */
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                   
                   {/* Profile Photo & Avatar Chooser */}
                   <div className="space-y-3">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Profile Picture</label>
+                    <label className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider block">Profile Picture</label>
                     
                     <div className="flex flex-col sm:flex-row items-center gap-5">
-                      {/* Active Photo Preview */}
                       <div className="relative group shrink-0">
                         <img
                           src={selectedAvatar}
                           alt="Profile Avatar"
-                          className="w-20 h-20 rounded-2xl object-cover border-2 border-[#4A7C59]/30 bg-slate-50 shadow-sm"
+                          className="w-20 h-20 rounded-2xl object-cover border-2 border-[#C48B3F] bg-[#F3F0EA]"
                           onError={(e) => { e.target.src = AVATAR_PRESETS[0].url; }}
                         />
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
-                          className="absolute -bottom-1 -right-1 p-1.5 bg-[#4A7C59] text-white rounded-lg shadow-md hover:bg-primary-hover transition-all cursor-pointer"
+                          className="absolute -bottom-1 -right-1 p-1.5 bg-[#1C1B18] text-white rounded-full hover:bg-[#C48B3F] transition-all cursor-pointer"
                           title="Upload Custom Photo"
                         >
                           <Camera className="w-3.5 h-3.5" />
@@ -337,7 +341,6 @@ export default function UserProfile() {
                         className="hidden"
                       />
 
-                      {/* Presets & Custom Upload Button */}
                       <div className="space-y-2 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {AVATAR_PRESETS.map((preset) => (
@@ -347,8 +350,8 @@ export default function UserProfile() {
                               onClick={() => setSelectedAvatar(preset.url)}
                               className={`relative w-10 h-10 rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
                                 selectedAvatar === preset.url
-                                  ? 'border-[#4A7C59] ring-2 ring-[#4A7C59]/20 scale-105 shadow-2xs'
-                                  : 'border-slate-200 hover:border-slate-300 opacity-80 hover:opacity-100'
+                                  ? 'border-[#C48B3F] ring-2 ring-[#C48B3F]/20 scale-105'
+                                  : 'border-[#DCD4C8] hover:border-[#C48B3F] opacity-80 hover:opacity-100'
                               }`}
                               title={preset.label}
                             >
@@ -363,7 +366,7 @@ export default function UserProfile() {
                             variant="secondary"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploading}
-                            className="bg-accent text-[#4A7C59] border border-[#4A7C59]/20 hover:bg-[#4A7C59] hover:text-white text-xs h-8 px-3 rounded-lg font-bold transition-all"
+                            className="bg-[#F3F0EA] text-[#1C1B18] border border-[#DCD4C8] hover:bg-[#1C1B18] hover:text-white text-xs h-8 px-3 rounded-full font-medium transition-all"
                           >
                             <Upload className="w-3 h-3 mr-1" /> {isUploading ? 'Uploading...' : 'Upload Custom Image'}
                           </Button>
@@ -378,16 +381,15 @@ export default function UserProfile() {
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
                     required
-                    className="bg-slate-50! border-slate-200 text-sm rounded-xl"
                   />
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Account Email</label>
+                    <label className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider block">Account Email</label>
                     <input
                       type="email"
                       value={user?.email || ''}
                       disabled
-                      className="w-full bg-slate-100 border border-slate-200 p-3 rounded-xl text-slate-500 text-sm font-medium cursor-not-allowed"
+                      className="w-full bg-[#F3F0EA] border border-[#DCD4C8] p-3 rounded-2xl text-[#666157] text-xs font-medium cursor-not-allowed"
                     />
                   </div>
 
@@ -395,11 +397,14 @@ export default function UserProfile() {
                     <InputField
                       label="Contact Telephone"
                       id="profilePhone"
-                      placeholder="+1 (555) 019-2831"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="e.g. 9876543210"
                       value={profilePhone}
-                      onChange={(e) => setProfilePhone(e.target.value)}
-                      className="bg-slate-50! border-slate-200 text-sm rounded-xl"
+                      onChange={(e) => setProfilePhone(e.target.value.replace(/\D/g, ''))}
                     />
+
 
                     <InputField
                       label="Location / Area Address"
@@ -407,7 +412,6 @@ export default function UserProfile() {
                       placeholder="e.g. Sector 4, East Hub"
                       value={profileLocation}
                       onChange={(e) => setProfileLocation(e.target.value)}
-                      className="bg-slate-50! border-slate-200 text-sm rounded-xl"
                     />
                   </div>
 
@@ -415,7 +419,7 @@ export default function UserProfile() {
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
-                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                      className="px-4 py-2.5 bg-[#F3F0EA] hover:bg-[#DCD4C8] text-[#1C1B18] text-xs font-medium rounded-full transition-all cursor-pointer border border-[#DCD4C8]"
                     >
                       Cancel
                     </button>
@@ -424,7 +428,7 @@ export default function UserProfile() {
                       type="submit" 
                       variant="primary" 
                       loading={isSaving}
-                      className="bg-[#4A7C59] hover:bg-primary-hover text-white text-xs font-bold h-11 px-6 rounded-xl shadow-xs"
+                      className="bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-xs font-medium h-11 px-6 rounded-full shadow-xs"
                     >
                       {isSaving ? 'Saving Changes...' : 'Save Profile Details'}
                     </Button>
@@ -434,29 +438,29 @@ export default function UserProfile() {
             </div>
 
             {/* Account Security Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-[#4A7C59]" /> Account Security
+            <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-3">
+                <h3 className="font-serif font-bold text-[#1C1B18] text-base flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#C48B3F]" /> Account Security
                 </h3>
-                <span className="text-xs font-bold text-slate-500">MFA Settings</span>
+                <span className="text-xs font-mono font-bold text-[#666157]">MFA Settings</span>
               </div>
 
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4">
+              <div className="p-4 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl flex items-center justify-between gap-4">
                 <div className="space-y-0.5">
-                  <span className="font-bold text-xs text-slate-900 block">Multi-Factor Authentication (MFA)</span>
-                  <span className="text-xs text-slate-500 block">Protect login access with OTP email verification</span>
+                  <span className="font-serif font-bold text-xs text-[#1C1B18] block">Multi-Factor Authentication (MFA)</span>
+                  <span className="text-xs text-[#666157] block">Protect login access with OTP email verification</span>
                 </div>
 
                 <button
                   onClick={handleToggleMFA}
                   disabled={togglingMfa}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    mfaEnabled ? 'bg-[#4A7C59]' : 'bg-slate-300'
+                    mfaEnabled ? 'bg-[#C48B3F]' : 'bg-[#DCD4C8]'
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
                       mfaEnabled ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
@@ -464,12 +468,12 @@ export default function UserProfile() {
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                  <Key className="w-4 h-4 text-slate-400" /> Need to update your password?
+                <div className="flex items-center gap-2 text-xs text-[#666157] font-medium">
+                  <Key className="w-4 h-4 text-[#C48B3F]" /> Need to update your password?
                 </div>
                 <button
                   onClick={handleSendResetPassword}
-                  className="text-xs font-bold text-[#4A7C59] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#C48B3F] hover:underline cursor-pointer"
                 >
                   Send Reset OTP →
                 </button>
@@ -482,41 +486,41 @@ export default function UserProfile() {
           <div className="lg:col-span-5 space-y-6">
             
             {/* Account Summary Metrics Card */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-900 text-base">Account Overview</h3>
-                <span className="px-2.5 py-0.5 bg-accent text-[#4A7C59] font-bold text-[10px] uppercase rounded-full border border-[#4A7C59]/20">
+            <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-3">
+                <h3 className="font-serif font-bold text-[#1C1B18] text-base">Account Overview</h3>
+                <span className="px-3 py-0.5 bg-[#F3F0EA] text-[#C48B3F] font-mono font-bold text-[10px] uppercase rounded-full border border-[#DCD4C8]">
                   {user?.role || 'Donor'}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Total Dispatches</span>
-                  <span className="text-2xl font-black text-slate-900 block font-mono">{myDonations.length}</span>
+                <div className="bg-[#F3F0EA] border border-[#DCD4C8] p-4 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666157] block">Total Dispatches</span>
+                  <span className="text-2xl font-black text-[#1C1B18] block font-mono">{myDonations.length}</span>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Carbon Offset</span>
-                  <span className="text-2xl font-black text-[#4A7C59] block font-mono">{carbonOffsetKg} kg</span>
+                <div className="bg-[#F3F0EA] border border-[#DCD4C8] p-4 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666157] block">Carbon Offset</span>
+                  <span className="text-2xl font-black text-[#C48B3F] block font-mono">{carbonOffsetKg} kg</span>
                 </div>
               </div>
 
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium">Contributor Tier:</span>
-                <span className="font-bold text-[#4A7C59]">Level {userLevel} Hero</span>
+              <div className="p-3.5 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl flex items-center justify-between text-xs">
+                <span className="text-[#666157] font-medium">Contributor Tier:</span>
+                <span className="font-bold text-[#C48B3F]">Level {userLevel} Hero</span>
               </div>
             </div>
 
             {/* Recent Contribution Dispatches List */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <Package className="w-4.5 h-4.5 text-[#4A7C59]" /> Recent Dispatches
+            <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-3">
+                <h3 className="font-serif font-bold text-[#1C1B18] text-base flex items-center gap-2">
+                  <Package className="w-4.5 h-4.5 text-[#C48B3F]" /> Recent Dispatches
                 </h3>
                 <button
                   onClick={() => navigate('/request-wizard')}
-                  className="text-xs font-bold text-[#4A7C59] hover:underline flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-bold text-[#C48B3F] hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> New
                 </button>
@@ -524,11 +528,11 @@ export default function UserProfile() {
 
               {myDonations.length === 0 ? (
                 <div className="text-center py-6 space-y-2">
-                  <p className="text-xs font-bold text-slate-600">No active dispatches submitted yet</p>
+                  <p className="text-xs font-serif font-bold text-[#1C1B18]">No active dispatches submitted yet</p>
                   <Button 
                     variant="primary" 
                     onClick={() => navigate('/request-wizard')}
-                    className="bg-[#4A7C59] text-white text-xs h-9 px-4 rounded-xl font-bold"
+                    className="bg-[#1C1B18] text-white text-xs h-9 px-5 rounded-full font-medium hover:bg-[#C48B3F]"
                   >
                     Start Donation Wizard
                   </Button>
@@ -536,23 +540,23 @@ export default function UserProfile() {
               ) : (
                 <div className="space-y-2.5">
                   {myDonations.slice(0, 4).map((d) => (
-                    <div key={d.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs hover:border-[#4A7C59]/40 transition-colors">
+                    <div key={d.id} className="p-3.5 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl flex items-center justify-between text-xs">
                       <div className="space-y-0.5 truncate max-w-42.5">
-                        <span className="font-bold text-slate-900 block truncate">{d.title || d.category}</span>
-                        <span className="text-[10px] text-slate-500 font-mono block">ID: {d.id} ({d.quantity} u)</span>
+                        <span className="font-serif font-bold text-[#1C1B18] block truncate">{d.title || d.category}</span>
+                        <span className="text-[10px] text-[#666157] font-mono block">ID: {d.id} ({d.quantity} u)</span>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          d.status === 'DELIVERED' ? 'bg-emerald-100 text-[#4A7C59]' :
-                          d.status === 'MATCHED' ? 'bg-accent text-[#4A7C59]' : 'bg-amber-100 text-amber-800'
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                          d.status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-800' :
+                          d.status === 'MATCHED' ? 'bg-[#EAE4DC] text-[#C48B3F]' : 'bg-amber-100 text-amber-900'
                         }`}>
                           {d.status}
                         </span>
                         
                         <button
                           onClick={() => navigate(`/tracking/${d.id}`)}
-                          className="p-1 text-[#4A7C59] hover:bg-accent rounded-lg transition-colors cursor-pointer"
+                          className="p-1 text-[#C48B3F] hover:bg-[#DCD4C8] rounded-full transition-colors cursor-pointer"
                           title="Track logistics"
                         >
                           <ArrowUpRight className="w-4 h-4" />
@@ -566,25 +570,25 @@ export default function UserProfile() {
 
             {/* Tax Exemption Receipts (80G) */}
             {deliveredDonations.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                    <FileText className="w-4.5 h-4.5 text-[#4A7C59]" /> 80G Tax Receipts
+              <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-[#DCD4C8] pb-3">
+                  <h3 className="font-serif font-bold text-[#1C1B18] text-base flex items-center gap-2">
+                    <FileText className="w-4.5 h-4.5 text-[#C48B3F]" /> 80G Tax Receipts
                   </h3>
-                  <span className="text-xs text-[#4A7C59] font-bold">{deliveredDonations.length} Available</span>
+                  <span className="text-xs text-[#C48B3F] font-bold">{deliveredDonations.length} Available</span>
                 </div>
 
                 <div className="space-y-2.5">
                   {deliveredDonations.map((d) => (
-                    <div key={d.id} className="p-3 bg-accent/50 border border-[#4A7C59]/20 rounded-xl flex items-center justify-between text-xs">
+                    <div key={d.id} className="p-3.5 bg-[#F3F0EA] border border-[#DCD4C8] rounded-2xl flex items-center justify-between text-xs">
                       <div className="truncate max-w-45">
-                        <span className="font-bold text-slate-900 block truncate">{d.title || d.category}</span>
-                        <span className="text-[10px] text-[#4A7C59] font-mono block">80G Certificate</span>
+                        <span className="font-serif font-bold text-[#1C1B18] block truncate">{d.title || d.category}</span>
+                        <span className="text-[10px] text-[#C48B3F] font-mono block">80G Certificate</span>
                       </div>
 
                       <button
                         onClick={() => handleDownloadReceipt(d.id, d.title || d.category)}
-                        className="inline-flex items-center gap-1 bg-[#4A7C59] text-white px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-primary-hover transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 bg-[#1C1B18] text-white px-3 py-1 rounded-full text-[11px] font-medium hover:bg-[#C48B3F] transition-colors cursor-pointer"
                       >
                         <Download className="w-3 h-3" /> PDF
                       </button>

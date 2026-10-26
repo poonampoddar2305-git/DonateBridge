@@ -63,7 +63,7 @@ class Command(BaseCommand):
             lat=21.1500, lng=79.0900,
             address='123 NGO Hub, Sadar, Nagpur, MH, 440001',
             registration_number='NGO-123456', gov_registration_number='GOV-998811',
-            ngo_type='Trust', phone='+91 9988776655', website='https://hopefoundation.org',
+            ngo_type='Trust', phone='9988776655', website='https://hopefoundation.org',
             state='Maharashtra', district='Nagpur', city='Nagpur', pin_code='440001',
             description='Dedicated to educational support and nourishment for underprivileged children.',
             mission='Ensure quality education and food reaches every child in the district.',
@@ -81,7 +81,7 @@ class Command(BaseCommand):
             lat=21.1400, lng=79.0800,
             address='45 Eco Park, Sitabuldi, Nagpur, MH, 440012',
             registration_number='NGO-234567', gov_registration_number='GOV-887766',
-            ngo_type='Society', phone='+91 8877665544', website='https://greenearth.org',
+            ngo_type='Society', phone='8877665544', website='https://greenearth.org',
             state='Maharashtra', district='Nagpur', city='Nagpur', pin_code='440012',
             description='Focused on environment, clothing recycling, and waste reduction programs.',
             mission='Promote zero waste and repurpose household item donations.',
@@ -99,7 +99,7 @@ class Command(BaseCommand):
             lat=21.1458, lng=79.0882,
             address='88 Seva Sadan, Dharampeth, Nagpur, MH, 440010',
             registration_number='NGO-345678', gov_registration_number='GOV-776655',
-            ngo_type='Society', phone='+91 7766554433', website='https://nagpurseva.org',
+            ngo_type='Society', phone='7766554433', website='https://nagpurseva.org',
             state='Maharashtra', district='Nagpur', city='Nagpur', pin_code='440010',
             description='Providing medical supplies, blankets, and essential care to elderly citizens.',
             mission='Ensure dignity and basic comfort kits to vulnerable communities.',
@@ -170,8 +170,14 @@ class Command(BaseCommand):
             password='donor123', role='donor', avatar='🙋‍♂️'
         )
         p1, _ = Profile.objects.get_or_create(user=donor1)
-        p1.phone = '+91 9123456789'
-        p1.address = '456 Donor Villa, Bandra West, Mumbai, MH, 400050'
+        p1.phone = '9123456789'
+        p1.address = '456 Dharampeth Main Road, Nagpur, MH, 440010'
+        p1.city = 'Nagpur'
+        p1.state = 'Maharashtra'
+        p1.pin_code = '440010'
+        p1.lat = 21.1458
+        p1.lng = 79.0882
+        p1.country = 'India'
         p1.save()
 
         donor_test = User.objects.create_user(
@@ -179,8 +185,14 @@ class Command(BaseCommand):
             password='password123', role='donor', avatar='🙋‍♂️'
         )
         p_test, _ = Profile.objects.get_or_create(user=donor_test)
-        p_test.phone = '+91 9998887770'
-        p_test.address = '789 Test Colony, Civil Lines, Nagpur, MH, 440001'
+        p_test.phone = '9998887770'
+        p_test.address = '789 Civil Lines Residency, Nagpur, MH, 440001'
+        p_test.city = 'Nagpur'
+        p_test.state = 'Maharashtra'
+        p_test.pin_code = '440001'
+        p_test.lat = 21.1500
+        p_test.lng = 79.0800
+        p_test.country = 'India'
         p_test.save()
 
         donor2 = User.objects.create_user(
@@ -188,9 +200,17 @@ class Command(BaseCommand):
             password='donor123', role='donor', avatar='🧑‍💼'
         )
         p2, _ = Profile.objects.get_or_create(user=donor2)
-        p2.phone = '+91 9876543210'
-        p2.address = '12 Green Meadows, Aundh, Pune, MH, 411007'
+        p2.phone = '9876543210'
+        p2.address = '12 Wardha Road, Manish Nagar, Nagpur, MH, 440015'
+        p2.city = 'Nagpur'
+        p2.state = 'Maharashtra'
+        p2.pin_code = '440015'
+        p2.lat = 21.1000
+        p2.lng = 79.0700
+        p2.country = 'India'
         p2.save()
+
+
 
         # Register donor to volunteer event
         VolunteerRegistration.objects.create(event=e1, user=donor1, status='approved')

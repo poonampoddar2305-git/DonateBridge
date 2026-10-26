@@ -7,6 +7,7 @@ const LandingPage = lazy(() => import('./pages/LandingPage'));
 const AuthSuite = lazy(() => import('./pages/AuthSuite'));
 const DonorDashboard = lazy(() => import('./pages/DonorDashboard'));
 const NgoConsole = lazy(() => import('./pages/NgoConsole'));
+const AdminConsole = lazy(() => import('./pages/AdminConsole'));
 const SearchDirectory = lazy(() => import('./pages/SearchDirectory'));
 const NgoProfile = lazy(() => import('./pages/NgoProfile'));
 const RequestWizard = lazy(() => import('./pages/RequestWizard'));
@@ -31,7 +32,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    if (window.location.pathname.includes('admin')) {
+      return <Navigate to="/auth?tab=login&role=admin" replace />;
+    }
+    const isNgoTarget = window.location.pathname.includes('ngo');
+    return <Navigate to={isNgoTarget ? "/auth?tab=register&role=ngo" : "/auth"} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -50,8 +55,8 @@ const RedirectToDjangoAdmin = () => {
   }, []);
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-      <div className="text-slate-500 animate-pulse font-medium text-lg">Redirecting to Django Admin Console...</div>
+    <div className="min-h-screen flex items-center justify-center bg-[#F3F0EA]">
+      <div className="text-[#666157] animate-pulse font-serif text-lg">Redirecting to Django Admin Console...</div>
     </div>
   );
 };
@@ -60,8 +65,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+        <div className="min-h-screen flex items-center justify-center bg-[#F3F0EA]">
+          <div className="w-8 h-8 border-4 border-[#DCD4C8] border-t-[#1C1B18] rounded-full animate-spin"></div>
         </div>
       }>
         <Routes>
@@ -70,6 +75,8 @@ export default function App() {
 
         {/* Screen 2: Authentication Core Suite */}
         <Route path="/auth" element={<AuthSuite />} />
+        <Route path="/login" element={<AuthSuite />} />
+        <Route path="/register" element={<AuthSuite />} />
 
         {/* New NGO Registration Wizard */}
         <Route 
@@ -131,7 +138,7 @@ export default function App() {
           path="/admin"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <RedirectToDjangoAdmin />
+              <AdminConsole />
             </ProtectedRoute>
           }
         />

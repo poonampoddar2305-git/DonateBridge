@@ -7,6 +7,19 @@ class VerificationStatus(models.TextChoices):
     REJECTED = 'rejected', 'Rejected'
     CHANGES_REQUESTED = 'changes_requested', 'Changes Requested'
 
+from django.core.validators import RegexValidator
+
+ngo_phone_validator = RegexValidator(
+    regex=r'^[6-9]\d{9}$',
+    message='Please enter a valid 10-digit Indian mobile number.'
+)
+
+
+ngo_pincode_validator = RegexValidator(
+    regex=r'^[1-9]\d{5}$',
+    message='Enter a valid 6-digit Indian pincode.'
+)
+
 class NGO(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ngo_details')
     name = models.CharField(max_length=255)
@@ -16,12 +29,13 @@ class NGO(models.Model):
     registration_number = models.CharField(max_length=100)
     gov_registration_number = models.CharField(max_length=100)
     ngo_type = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20, validators=[ngo_phone_validator])
     website = models.URLField(blank=True, null=True)
     state = models.CharField(max_length=100)
     district = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
-    pin_code = models.CharField(max_length=20)
+    pin_code = models.CharField(max_length=20, validators=[ngo_pincode_validator])
+
     description = models.TextField()
     mission = models.TextField()
     working_areas = models.CharField(max_length=500) # Comma-separated list

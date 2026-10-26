@@ -52,7 +52,16 @@ class DonateBridgeBackendTests(TestCase):
         self.assertIn('access', response.data)
         self.assertEqual(response.data['user']['role'], 'donor')
 
+    def test_login_non_existent_email_rejection(self):
+        response = self.client.post('/api/auth/login/', {
+            'email': 'unregistered_user_999@test.com',
+            'password': 'somepassword123'
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Account not found. Please register first.', str(response.data))
+
     def test_ngo_registration_and_needs(self):
+
         # Register NGO detail
         self.client.force_authenticate(user=self.ngo_user)
         response = self.client.post('/api/ngos/register/', {
@@ -324,13 +333,14 @@ class DonateBridgeBackendTests(TestCase):
         self.assertEqual(VolunteerRegistration.objects.count(), 1)
 
     def test_forgot_password_and_reset_password(self):
+        from django.core.cache import cache
         # 1. Forgot password request
         response = self.client.post('/api/auth/forgot-password/', {
             'email': 'donor@test.com'
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('otp_preview', response.data)
-        otp_code = response.data['otp_preview']
+        otp_code = cache.get('otp_donor@test.com')
+        self.assertIsNotNone(otp_code)
 
         # 2. Reset password using the code
         response = self.client.post('/api/auth/reset-password/', {
@@ -367,3 +377,180 @@ class DonateBridgeBackendTests(TestCase):
         double_ext_file = SimpleUploadedFile("script.php.png", b"file_content", content_type="image/png")
         response = self.client.post('/api/upload/', {'file': double_ext_file}, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_user_feedback_submission(self):
+        # 1. Test missing fields
+        response = self.client.post('/api/feedback/', {
+            'name': '',
+            'email': 'donor@test.com',
+            'message': ''
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. Test valid feedback submission
+        response = self.client.post('/api/feedback/', {
+            'name': 'Test User',
+            'email': 'testuser@example.com',
+            'role': 'donor',
+            'message': 'DonateBridge platform is working fantastically!'
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get('success'))
+
+    def test_coordinate_location_registration_and_validation(self):
+        # 1. Test valid coordinate registration
+        response = self.client.post('/api/auth/register/', {
+            'username': 'coorddonor',
+            'email': 'coorddonor@test.com',
+            'password': 'donorpassword123',
+            'role': 'donor',
+            'lat': 21.1458,
+            'lng': 79.0882,
+            'address': 'Sitabuldi, Nagpur, MH 440001',
+            'city': 'Nagpur',
+            'state': 'Maharashtra',
+            'pin_code': '440001',
+            'country': 'India'
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        coord_user = User.objects.get(email='coorddonor@test.com')
+        self.assertEqual(coord_user.profile.lat, 21.1458)
+        self.assertEqual(coord_user.profile.lng, 79.0882)
+        self.assertEqual(coord_user.profile.city, 'Nagpur')
+
+        # 2. Test invalid latitude (> 90) rejection
+        response = self.client.post('/api/auth/register/', {
+            'username': 'badlatuser',
+            'email': 'badlat@test.com',
+            'password': 'password123',
+            'role': 'donor',
+            'lat': 999.0,
+            'lng': 79.0882
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Invalid coordinates', str(response.data))
+
+        # 3. Test invalid longitude (> 180) rejection
+        response = self.client.post('/api/auth/register/', {
+            'username': 'badlnguser',
+            'email': 'badlng@test.com',
+            'password': 'password123',
+            'role': 'donor',
+            'lat': 21.1458,
+            'lng': 500.0
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Invalid coordinates', str(response.data))
+
+    def test_reverse_geocode_api_endpoint(self):
+        # 1. Missing params
+        response = self.client.get('/api/location/reverse-geocode/')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. Out of bound coords
+        response = self.client.get('/api/location/reverse-geocode/?lat=999&lng=500')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 3. Valid coords query
+        response = self.client.get('/api/location/reverse-geocode/?lat=21.1458&lng=79.0882')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('city', response.data)
+        self.assertIn('state', response.data)
+
+    def test_donor_registration_with_aadhaar_and_pan(self):
+        # 1. Invalid Aadhaar format (must be 12 digits)
+        response = self.client.post('/api/auth/register/', {
+            'username': 'badaadhaar',
+            'email': 'badaadhaar@test.com',
+            'password': 'password123',
+            'role': 'donor',
+            'aadhaar_number': '12345'
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('aadhaar_number', response.data)
+
+        # 2. Invalid PAN format (must be 10 chars, e.g. ABCDE1234F)
+        response = self.client.post('/api/auth/register/', {
+            'username': 'badpan',
+            'email': 'badpan@test.com',
+            'password': 'password123',
+            'role': 'donor',
+            'pan_number': 'INVALIDPAN12'
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('pan_number', response.data)
+
+        # 3. Successful donor registration with valid Aadhaar & PAN
+        response = self.client.post('/api/auth/register/', {
+            'username': 'verifieddonor',
+            'email': 'verifieddonor@test.com',
+            'password': 'password123',
+            'role': 'donor',
+            'aadhaar_number': '123456789012',
+            'pan_number': 'ABCDE1234F',
+            'aadhaar_doc': 'https://example.com/aadhaar.pdf',
+            'pan_doc': 'https://example.com/pan.pdf'
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_user = User.objects.get(email='verifieddonor@test.com')
+        self.assertEqual(new_user.profile.verification_status, 'pending')
+        self.assertEqual(new_user.profile.aadhaar_number, '123456789012')
+        self.assertEqual(new_user.profile.pan_number, 'ABCDE1234F')
+
+    def test_admin_donor_audit_workflow(self):
+        # Create admin user
+        admin_user = User.objects.create_superuser(
+            username='admin_audit',
+            email='admin_audit@test.com',
+            password='adminpassword123'
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        # Register donor
+        donor = User.objects.create_user(
+            username='audit_donor',
+            email='audit_donor@test.com',
+            password='password123',
+            role='donor'
+        )
+        donor.profile.aadhaar_number = '987654321098'
+        donor.profile.pan_number = 'XYZAB5678C'
+        donor.profile.verification_status = 'pending'
+        donor.profile.save()
+
+        # 1. Admin views pending donors queue
+        response = self.client.get('/api/admin/donors/pending/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        donor_ids = [d['id'] for d in response.data]
+        self.assertIn(donor.id, donor_ids)
+
+        # 2. Admin requests changes
+        response = self.client.post(f'/api/admin/donors/{donor.id}/audit/', {
+            'action': 'request_changes',
+            'reason': 'Please upload a clearer PAN card image.'
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        donor.profile.refresh_from_db()
+        self.assertEqual(donor.profile.verification_status, 'changes_requested')
+        self.assertEqual(donor.profile.rejection_reason, 'Please upload a clearer PAN card image.')
+
+        # 3. Donor resubmits updated verification
+        self.client.force_authenticate(user=donor)
+        resubmit_res = self.client.post('/api/users/resubmit-verification/', {
+            'pan_doc': 'https://example.com/clearer_pan.jpg'
+        })
+        self.assertEqual(resubmit_res.status_code, status.HTTP_200_OK)
+        donor.profile.refresh_from_db()
+        self.assertEqual(donor.profile.verification_status, 'pending')
+
+        # 4. Admin approves donor
+        self.client.force_authenticate(user=admin_user)
+        approve_res = self.client.post(f'/api/admin/donors/{donor.id}/audit/', {
+            'action': 'approve'
+        })
+        self.assertEqual(approve_res.status_code, status.HTTP_200_OK)
+        donor.profile.refresh_from_db()
+        self.assertEqual(donor.profile.verification_status, 'approved')
+
+
+

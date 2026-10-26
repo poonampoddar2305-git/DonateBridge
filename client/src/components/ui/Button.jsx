@@ -14,20 +14,20 @@ export const Button = ({
   ...props
 }) => {
   const showLoading = isLoading || loading;
-  const baseStyles = 'inline-flex items-center justify-center font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ease-out disabled:opacity-50 disabled:pointer-events-none rounded-md';
+  const baseStyles = 'inline-flex items-center justify-center font-medium focus:outline-none transition-all duration-200 ease-out disabled:opacity-50 disabled:pointer-events-none rounded-full';
   
   const variants = {
-    primary: 'bg-[#4A7C59] text-white hover:bg-[#3B6647] shadow-sm focus:ring-[#4A7C59]',
-    secondary: 'bg-[#E8F3EC] text-[#4A7C59] hover:bg-[#4A7C59] hover:text-white border border-[#4A7C59]/20 focus:ring-[#4A7C59]',
-    outline: 'border border-[#4A7C59] text-[#4A7C59] hover:bg-[#4A7C59] hover:text-white focus:ring-[#4A7C59]',
-    danger: 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm focus:ring-rose-500',
-    ghost: 'bg-transparent hover:bg-[#E8F3EC] text-stone-700 hover:text-[#4A7C59] focus:ring-[#4A7C59]',
+    primary: 'bg-[#1C1B18] text-white hover:bg-[#C48B3F] shadow-xs cursor-pointer',
+    secondary: 'bg-[#EAE4DC] text-[#1C1B18] hover:bg-[#DCD4C8] border border-[#DCD4C8] cursor-pointer',
+    outline: 'border border-[#1C1B18] text-[#1C1B18] hover:bg-[#EAE4DC] cursor-pointer',
+    danger: 'bg-rose-700 hover:bg-rose-800 text-white cursor-pointer',
+    ghost: 'bg-transparent hover:bg-[#EAE4DC] text-[#1C1B18] hover:text-[#C48B3F] cursor-pointer',
   };
 
   const sizes = {
-    sm: 'px-3 py-1.5 text-xs font-medium rounded-md',
-    md: 'px-4 py-2 text-sm font-medium rounded-md',
-    lg: 'px-5 py-2.5 text-base font-semibold rounded-lg',
+    sm: 'px-4 py-1.5 text-xs font-medium rounded-full',
+    md: 'px-6 py-2.5 text-xs font-medium rounded-full',
+    lg: 'px-8 py-3 text-sm font-medium rounded-full',
   };
 
   return (

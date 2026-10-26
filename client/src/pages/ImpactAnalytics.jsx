@@ -5,7 +5,6 @@ import {
   Calendar, Check, Filter, TrendingUp, HelpCircle
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import { useRealDB } from '../hooks/useRealDB';
@@ -66,14 +65,15 @@ export default function ImpactAnalytics() {
       {
         data: catData,
         backgroundColor: [
-          '#2E5B3D',
-          '#4A7C59',
-          '#10B981',
-          '#059669',
-          '#34D399',
-          '#6EE7B7'
+          '#1C1B18',
+          '#C48B3F',
+          '#666157',
+          '#8C6228',
+          '#DCD4C8',
+          '#A89F91'
         ],
         borderWidth: 1,
+        borderColor: '#EAE4DC'
       },
     ],
   };
@@ -103,8 +103,8 @@ export default function ImpactAnalytics() {
       {
         label: 'CO2 Diverted (kg)',
         data: cumulativeCO2,
-        borderColor: '#2E5B3D',
-        backgroundColor: 'rgba(46, 91, 61, 0.08)',
+        borderColor: '#C48B3F',
+        backgroundColor: 'rgba(196, 139, 63, 0.15)',
         tension: 0.3,
         fill: true,
       },
@@ -117,31 +117,31 @@ export default function ImpactAnalytics() {
       {
         label: 'Items Transferred',
         data: barValues,
-        backgroundColor: '#2E5B3D',
-        borderRadius: 6,
+        backgroundColor: '#1C1B18',
+        borderRadius: 8,
       },
     ],
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full p-6 sm:p-8 space-y-6">
+      <main className="flex-1 max-w-5xl mx-auto w-full p-6 sm:p-8 space-y-6 pt-24 text-left">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-xl font-display font-bold tracking-tight text-slate-900">Environmental & Logistics Analytics</h1>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Real-time resource routing, CO2 carbon offsets, and category distribution.</p>
+            <h1 className="text-2xl font-serif font-bold tracking-tight text-[#1C1B18]">Environmental &amp; Logistics Analytics</h1>
+            <p className="text-xs text-[#666157] mt-1 font-medium">Real-time resource routing, CO2 carbon offsets, and category distribution.</p>
           </div>
 
-          <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
+          <div className="flex gap-1 bg-[#EAE4DC] p-1.5 rounded-full border border-[#DCD4C8] shadow-xs">
             {['1M', '6M', '1Y'].map(t => (
               <button
                 key={t}
                 onClick={() => setTimeframe(t)}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  timeframe === t ? 'bg-[#2E5B3D] text-white font-bold' : 'text-slate-500 hover:bg-slate-50'
+                className={`px-4 py-1.5 text-xs font-mono font-bold rounded-full transition-all cursor-pointer ${
+                  timeframe === t ? 'bg-[#1C1B18] text-white' : 'text-[#666157] hover:bg-[#F3F0EA]'
                 }`}
               >
                 {t}
@@ -152,61 +152,61 @@ export default function ImpactAnalytics() {
 
         {/* Stats metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex items-center justify-between">
+          <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Total Items Routed</span>
-              <p className="text-3xl font-display font-extrabold text-[#2E5B3D]">{totalItemsTransferred.toLocaleString()}</p>
-              <span className="text-xs text-slate-500 block font-medium">Live surplus pledges across network</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#666157] font-bold">Total Items Routed</span>
+              <p className="text-3xl font-serif font-bold text-[#1C1B18]">{totalItemsTransferred.toLocaleString()}</p>
+              <span className="text-xs text-[#666157] block font-medium">Live surplus pledges across network</span>
             </div>
-            <BarChart2 className="w-8 h-8 text-[#2E5B3D] opacity-20" />
+            <BarChart2 className="w-8 h-8 text-[#C48B3F]" />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex items-center justify-between">
+          <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Carbon Savings</span>
-              <p className="text-3xl font-display font-extrabold text-emerald-600">{carbonSavedKg.toLocaleString()} kg</p>
-              <span className="text-xs text-slate-500 block font-medium">CO2 emissions diverted from landfills</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#666157] font-bold">Carbon Savings</span>
+              <p className="text-3xl font-serif font-bold text-[#C48B3F]">{carbonSavedKg.toLocaleString()} kg</p>
+              <span className="text-xs text-[#666157] block font-medium">CO2 emissions diverted from landfills</span>
             </div>
-            <Leaf className="w-8 h-8 text-emerald-600 opacity-20" />
+            <Leaf className="w-8 h-8 text-[#C48B3F]" />
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex items-center justify-between">
+          <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Verified NGO Hubs</span>
-              <p className="text-3xl font-display font-extrabold text-slate-900">{approvedNgosCount} Hubs</p>
-              <span className="text-xs text-slate-500 block font-medium">Active audited partner non-profits</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#666157] font-bold">Verified NGO Hubs</span>
+              <p className="text-3xl font-serif font-bold text-[#1C1B18]">{approvedNgosCount} Hubs</p>
+              <span className="text-xs text-[#666157] block font-medium">Active audited partner non-profits</span>
             </div>
-            <ShieldCheck className="w-8 h-8 text-[#2E5B3D] opacity-20" />
+            <ShieldCheck className="w-8 h-8 text-[#C48B3F]" />
           </div>
         </div>
 
         {/* Charts area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex flex-col justify-between h-80">
+          <div className="lg:col-span-2 bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex flex-col justify-between h-80">
             <div className="mb-2">
-              <h3 className="text-xs font-display font-bold text-slate-400 uppercase tracking-wider">Environmental CO2 Savings Log (kg)</h3>
-              <p className="text-xs text-slate-500">Accumulated carbon footprint diverted via direct courier logistics channels.</p>
+              <h3 className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider">Environmental CO2 Savings Log (kg)</h3>
+              <p className="text-xs text-[#666157]">Accumulated carbon footprint diverted via direct courier logistics channels.</p>
             </div>
             <div className="flex-1 min-h-0 pt-4">
               <Line data={lineData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex flex-col justify-between h-80">
+          <div className="bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex flex-col justify-between h-80">
             <div className="mb-2">
-              <h3 className="text-xs font-display font-bold text-slate-400 uppercase tracking-wider">Material Categories (Share %)</h3>
-              <p className="text-xs text-slate-500">Distribution of items delivered by category.</p>
+              <h3 className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider">Material Categories (Share %)</h3>
+              <p className="text-xs text-[#666157]">Distribution of items delivered by category.</p>
             </div>
             <div className="flex-1 min-h-0 pt-4">
               <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
             </div>
           </div>
 
-          <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl shadow-xs p-6 flex flex-col justify-between h-80">
+          <div className="lg:col-span-3 bg-[#EAE4DC] border border-[#DCD4C8] rounded-3xl shadow-xs p-6 flex flex-col justify-between h-80">
             <div className="mb-2">
-              <h3 className="text-xs font-display font-bold text-slate-400 uppercase tracking-wider">Monthly Logistical Donation Volume</h3>
-              <p className="text-xs text-slate-500">Physical resources transferred and ledger confirmed monthly.</p>
+              <h3 className="text-xs font-mono font-bold text-[#666157] uppercase tracking-wider">Monthly Logistical Donation Volume</h3>
+              <p className="text-xs text-[#666157]">Physical resources transferred and ledger confirmed monthly.</p>
             </div>
             <div className="flex-1 min-h-0 pt-4">
               <Bar data={barData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
@@ -215,10 +215,10 @@ export default function ImpactAnalytics() {
         </div>
 
         {/* Anti-Fraud Audit Note */}
-        <div className="text-xs text-slate-600 flex items-start gap-3 bg-[#F1F8F5] border border-emerald-100 p-4 rounded-xl">
-          <HelpCircle className="w-5 h-5 text-[#2E5B3D] shrink-0 mt-0.5" />
+        <div className="text-xs text-[#666157] flex items-start gap-3 bg-[#EAE4DC] border border-[#DCD4C8] p-5 rounded-3xl">
+          <HelpCircle className="w-5 h-5 text-[#C48B3F] shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-bold text-[#2E5B3D]">Anti-Fraud & Environmental Audit Process</p>
+            <p className="font-serif font-bold text-[#1C1B18]">Anti-Fraud &amp; Environmental Audit Process</p>
             <p className="leading-relaxed">
               DonateBridge carbon saving metrics are calculated by multiplying physical packaging weights by shipping distance, subtracting the standard waste processing footprint, and verified via spatial auditing protocols. Transaction records are strictly non-monetary.
             </p>

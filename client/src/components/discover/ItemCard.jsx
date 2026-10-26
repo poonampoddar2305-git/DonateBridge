@@ -33,12 +33,12 @@ export default function ItemCard({
       exit={{ opacity: 0, scale: 0.95 }}
       onMouseEnter={() => onHover && onHover(item.id)}
       onMouseLeave={() => onHover && onHover(null)}
-      className={`group relative bg-white border rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between text-left cursor-pointer ${
+      className={`group relative border rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between text-left cursor-pointer ${
         isSelected
-          ? 'border-[#4A7C59] ring-2 ring-[#4A7C59]/30 shadow-xl bg-[#F8FCFA]'
+          ? 'bg-[#F3F0EA] border-[#C48B3F] ring-2 ring-[#C48B3F]/30 shadow-md'
           : isHovered
-          ? 'border-stone-400 shadow-lg scale-[1.01]'
-          : 'border-stone-200 shadow-sm hover:shadow-md'
+          ? 'bg-[#EAE4DC] border-[#C48B3F] shadow-sm'
+          : 'bg-[#EAE4DC] border-[#DCD4C8] hover:border-[#C48B3F]'
       }`}
       onClick={() => onSelect && onSelect(item)}
     >
@@ -48,16 +48,16 @@ export default function ItemCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-              type === 'ngos' ? 'bg-accent text-primary' : 'bg-amber-50 text-amber-600'
+              type === 'ngos' ? 'bg-[#F3F0EA] text-[#C48B3F] border border-[#DCD4C8]' : 'bg-[#F3F0EA] text-[#1C1B18] border border-[#DCD4C8]'
             }`}>
-              {type === 'ngos' ? <Building className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+              {type === 'ngos' ? <Building className="w-5 h-5" /> : <Package className="w-5 h-5 text-[#C48B3F]" />}
             </div>
             
             <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600 block">
-                {type === 'ngos' ? 'Verified NGO Partner' : `${quantity} Units Available`}
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666157] block">
+                {type === 'ngos' ? 'Verified Partner NGO' : `${quantity} Units Available`}
               </span>
-              <h3 className="font-bold text-base text-stone-900 truncate leading-snug group-hover:text-primary transition-colors">
+              <h3 className="font-serif font-bold text-base text-[#1C1B18] truncate leading-snug group-hover:text-[#C48B3F] transition-colors">
                 {title}
               </h3>
             </div>
@@ -69,10 +69,10 @@ export default function ItemCard({
               e.stopPropagation();
               onToggleSave && onToggleSave(item.id, e);
             }}
-            className={`p-2 rounded-xl border transition-colors cursor-pointer shrink-0 ${
+            className={`p-2 rounded-full border transition-colors cursor-pointer shrink-0 ${
               isSaved
                 ? 'bg-rose-50 border-rose-200 text-rose-600'
-                : 'bg-stone-50 border-stone-200 text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                : 'bg-[#F3F0EA] border-[#DCD4C8] text-[#666157] hover:text-[#1C1B18]'
             }`}
             title={isSaved ? 'Saved in wishlist' : 'Save item'}
           >
@@ -82,11 +82,11 @@ export default function ItemCard({
 
         {/* Smart Match Banner if available */}
         {smartMatchDetails && (
-          <div className="bg-accent border border-primary/30 p-2.5 rounded-2xl flex items-center justify-between text-xs text-primary font-semibold">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-primary" /> Smart Match
+          <div className="bg-[#F3F0EA] border border-[#DCD4C8] p-2.5 rounded-2xl flex items-center justify-between text-xs text-[#1C1B18] font-medium">
+            <span className="flex items-center gap-1.5 font-bold text-[#C48B3F]">
+              <Sparkles className="w-4 h-4" /> Smart Match
             </span>
-            <span className="font-bold text-sm bg-white px-2 py-0.5 rounded-lg border border-primary/20 shadow-xs">
+            <span className="font-bold text-xs bg-[#1C1B18] text-white px-2.5 py-0.5 rounded-full">
               {smartMatchDetails.score}% Score
             </span>
           </div>
@@ -95,52 +95,52 @@ export default function ItemCard({
         {/* Info Pills */}
         <div className="flex flex-wrap gap-2 text-xs font-medium">
           {category && (
-            <span className="bg-stone-100 text-stone-700 px-3 py-1 rounded-xl border border-stone-200">
+            <span className="bg-[#F3F0EA] text-[#1C1B18] px-3 py-1 rounded-full border border-[#DCD4C8]">
               {category}
             </span>
           )}
 
           {distanceKm && (
-            <span className="bg-emerald-50 text-emerald-800 font-mono font-bold px-3 py-1 rounded-xl border border-emerald-200 flex items-center gap-1">
+            <span className="bg-emerald-50 text-emerald-800 font-mono font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
               <Navigation className="w-3 h-3 text-emerald-600" /> {distanceKm} km away
             </span>
           )}
 
           {type === 'ngos' && (
-            <span className="bg-amber-50 text-amber-800 font-mono font-bold px-3 py-1 rounded-xl border border-amber-200 flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-amber-600" /> {trustScore}% Trust
+            <span className="bg-[#F3F0EA] text-[#C48B3F] font-mono font-bold px-3 py-1 rounded-full border border-[#DCD4C8] flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-[#C48B3F]" /> {trustScore}% Trust
             </span>
           )}
         </div>
 
         {/* Address */}
-        <p className="text-xs text-stone-500 flex items-center gap-1.5 truncate">
-          <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+        <p className="text-xs text-[#666157] flex items-center gap-1.5 truncate">
+          <MapPin className="w-3.5 h-3.5 text-[#C48B3F] shrink-0" />
           <span className="truncate">{address}</span>
         </p>
       </div>
 
       {/* Card Actions Footer */}
-      <div className="mt-5 pt-4 border-t border-stone-100 flex items-center justify-between gap-3">
+      <div className="mt-5 pt-4 border-t border-[#DCD4C8] flex items-center justify-between gap-3">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onSelect && onSelect(item);
           }}
-          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+          className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 border ${
             isSelected
-              ? 'bg-primary text-white border-primary'
-              : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+              ? 'bg-[#1C1B18] text-white border-[#1C1B18]'
+              : 'bg-[#F3F0EA] hover:bg-[#DCD4C8] text-[#1C1B18] border-[#DCD4C8]'
           }`}
         >
           <Navigation className="w-3.5 h-3.5" />
-          {isSelected ? 'Routing Active' : 'Navigate'}
+          {isSelected ? 'Active Route' : 'Navigate'}
         </button>
 
         {type === 'donations' && userRole === 'ngo' && (
           <Button
             size="sm"
-            className="bg-primary hover:bg-primary-hover text-white text-xs font-bold py-2 px-4 rounded-xl shadow-xs"
+            className="bg-[#1C1B18] hover:bg-[#C48B3F] text-white text-xs font-medium py-1.5 px-4 rounded-full shadow-xs"
             onClick={(e) => {
               e.stopPropagation();
               onClaim && onClaim(item);

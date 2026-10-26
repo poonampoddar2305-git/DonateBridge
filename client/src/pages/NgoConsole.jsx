@@ -147,17 +147,23 @@ export default function NgoConsole() {
 
   const handlePostNeed = async (e) => {
     e.preventDefault();
+    const qtyNum = parseInt(needQty, 10);
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      toast.error('Quantity needed must be a positive integer greater than zero.');
+      return;
+    }
     setSubmittingNeed(true);
     try {
       await addNeed({
         category: needCategory,
         item: needItem,
-        quantity: parseInt(needQty, 10),
+        quantity: qtyNum,
         urgency: needUrgency,
         description: needDescription,
         lat: currentNgo.lat || 0,
         lng: currentNgo.lng || 0,
       });
+
       setNeedItem('');
       setNeedQty('');
       setNeedDescription('');
@@ -189,10 +195,11 @@ export default function NgoConsole() {
     }
   };
 
-  const verStatus = currentNgo?.verificationStatus || 'pending';
+  const verStatus = currentNgo?.verification_status || currentNgo?.verificationStatus || 'pending';
+  const rejReason = currentNgo?.rejection_reason || currentNgo?.rejectionReason || '';
 
-  // Screen for Rejected NGOs
-  if (verStatus === 'rejected') {
+  // Screen for Changes Requested by Admin
+  if (verStatus === 'changes_requested') {
     return (
       <div className="min-h-screen flex flex-col bg-[#FAFAF7] text-[#1E2923] font-sans">
         <Navbar />
@@ -200,14 +207,56 @@ export default function NgoConsole() {
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-lg bg-white border border-[#E8EDE9] p-8 md:p-10 rounded-3xl shadow-sm text-center space-y-6"
+            className="w-full max-w-lg bg-white border border-indigo-200 p-8 md:p-10 rounded-3xl shadow-sm text-center space-y-6"
           >
-            <div className="w-16 h-16 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-center mx-auto text-rose-600 shadow-2xs">
+            <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 shadow-2xs">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display font-bold text-2xl text-[#1E2923]">Action Required: Changes Requested</h1>
+              <p className="text-[#64748B] text-sm leading-relaxed max-w-md mx-auto">
+                Platform administrators reviewed your NGO documents and requested revisions before approving your organization.
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 text-left space-y-1.5">
+              <p className="font-bold text-indigo-900 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-indigo-600" /> Administrator Remarks
+              </p>
+              <p className="text-[#1E2923] text-xs font-medium leading-relaxed">
+                {rejReason || 'Please upload updated registration certificate and PAN card copy.'}
+              </p>
+            </div>
+            <div className="flex justify-center gap-3 pt-2">
+              <Button variant="primary" onClick={() => navigate('/ngo-register')} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-5 h-11 text-xs font-semibold">
+                Update Documents & Resubmit
+              </Button>
+              <Button variant="secondary" onClick={() => navigate('/chat')} className="bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl px-5 h-11 text-xs font-semibold">
+                Contact Admin Support
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Screen for Rejected NGOs
+  if (verStatus === 'rejected') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F3F0EA] text-[#1C1B18] font-sans">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-6 pt-28">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-lg bg-[#EAE4DC] border border-[#DCD4C8] p-8 md:p-10 rounded-3xl shadow-xs text-center space-y-6"
+          >
+            <div className="w-16 h-16 bg-rose-50 border border-rose-100 rounded-full flex items-center justify-center mx-auto text-rose-600 shadow-xs">
               <ShieldAlert className="w-8 h-8" />
             </div>
             <div className="space-y-2">
-              <h1 className="font-display font-bold text-2xl text-[#1E2923]">NGO Access Restricted</h1>
-              <p className="text-[#64748B] text-sm leading-relaxed max-w-md mx-auto">
+              <h1 className="font-serif font-bold text-2xl text-[#1C1B18]">NGO Access Restricted</h1>
+              <p className="text-[#666157] text-sm leading-relaxed max-w-md mx-auto">
                 Your NGO registration requires official audit verification before you can claim matches and broadcast demands.
               </p>
             </div>
@@ -215,17 +264,17 @@ export default function NgoConsole() {
               <p className="font-bold text-rose-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" /> Audit Feedback
               </p>
-              <p className="text-[#1E2923] text-xs font-medium leading-relaxed">
-                {currentNgo?.rejectionReason || 'Invalid registration license number or missing certificate verification.'}
+              <p className="text-[#1C1B18] text-xs font-medium leading-relaxed">
+                {rejReason || 'Invalid registration license number or missing certificate verification.'}
               </p>
             </div>
             <div className="flex justify-center gap-3 pt-2">
-              <Button variant="secondary" onClick={() => navigate('/settings')} className="bg-[#EBF3EE] text-[#2E5B3D] border border-[#2E5B3D]/15 hover:bg-[#2E5B3D] hover:text-white rounded-xl px-5 h-11 text-xs font-semibold transition-all">
-                Update Documents
-              </Button>
-              <Button variant="primary" onClick={() => navigate('/chat')} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-5 h-11 text-xs font-semibold">
+              <button onClick={() => navigate('/ngo-register')} className="rounded-full bg-[#1C1B18] text-white hover:bg-[#C48B3F] px-6 py-2.5 text-xs font-medium transition-all">
+                Update Documents & Re-apply
+              </button>
+              <button onClick={() => navigate('/chat')} className="rounded-full bg-rose-700 hover:bg-rose-800 text-white px-6 py-2.5 text-xs font-medium">
                 Contact Support
-              </Button>
+              </button>
             </div>
           </motion.div>
         </div>
@@ -246,11 +295,30 @@ export default function NgoConsole() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen flex flex-col bg-[#F3F0EA] text-[#1C1B18] font-sans antialiased">
       <Navbar />
 
       {/* SEAMLESS TOP HERO BANNER */}
-      <div className="bg-white border-b border-slate-200/80 pt-24 pb-8 px-4 sm:px-6 lg:px-8">
+      <div className="bg-[#EAE4DC] border-b border-[#DCD4C8] pt-24 pb-8 px-4 sm:px-6 lg:px-8">
+        {verStatus === 'pending' && (
+          <div className="max-w-6xl mx-auto mb-6 bg-amber-50 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">Verification Pending Administrative Audit</h4>
+                <p className="text-xs text-amber-700 mt-0.5">Your organization filings and legal documents have been submitted and are currently queued for manual inspection.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/ngo-register')}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shrink-0"
+            >
+              Review & Update Filings
+            </button>
+          </div>
+        )}
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           
           {/* Left NGO Identity */}
@@ -481,7 +549,7 @@ export default function NgoConsole() {
                             </div>
                             <div className="flex items-center justify-between">
                               <span>Pickup Location:</span>
-                              <strong className="text-slate-800 text-right truncate max-w-[200px]">{pledge.pickupAddress || pledge.address || 'Nagpur, Maharashtra'}</strong>
+                              <strong className="text-slate-800 text-right truncate max-w-[200px]">{pledge.pickupAddress || pledge.address || 'Address provided on request'}</strong>
                             </div>
                           </div>
                         </div>

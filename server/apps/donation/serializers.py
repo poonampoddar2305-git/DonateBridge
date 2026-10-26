@@ -59,6 +59,23 @@ class DonationCreateSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id',)
 
+    def validate_quantity(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("Donation quantity must be a positive integer greater than zero.")
+        return value
+
+    def validate_title(self, value):
+        clean_val = str(value).strip() if value else ''
+        if len(clean_val) < 3:
+            raise serializers.ValidationError("Donation title must be at least 3 characters long.")
+        return clean_val
+
+    def validate_pickup_address(self, value):
+        clean_val = str(value).strip() if value else ''
+        if len(clean_val) < 5:
+            raise serializers.ValidationError("Pickup address must be at least 5 characters long.")
+        return clean_val
+
     def validate_photos(self, value):
         for item in value:
             # Validate format (e.g. extension, double extension checks)
@@ -69,6 +86,7 @@ class DonationCreateSerializer(serializers.ModelSerializer):
             if len(item.split('.')) > 3 and any(x in item.split('.')[:-1] for x in ['php', 'sh', 'py', 'exe', 'html']):
                 raise serializers.ValidationError("Suspicious double file extension detected.")
         return value
+
 
     def create(self, validated_data):
         photos_data = validated_data.pop('photos', [])

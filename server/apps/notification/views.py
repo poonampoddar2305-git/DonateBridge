@@ -12,11 +12,11 @@ class NotificationListView(generics.ListAPIView):
     def get_queryset(self):
         queryset = Notification.objects.filter(user=self.request.user)
         
-        # Optional type filtering (all, unread, delivery, security)
+        # Optional type filtering (all, unread, delivery, security, match, chat)
         notif_type = self.request.query_params.get('type')
         if notif_type == 'unread':
             queryset = queryset.filter(is_read=False)
-        elif notif_type in ['delivery', 'security']:
+        elif notif_type in ['delivery', 'security', 'match', 'chat']:
             queryset = queryset.filter(notification_type=notif_type)
             
         return queryset.order_by('-created_at')
