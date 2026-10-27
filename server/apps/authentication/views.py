@@ -235,12 +235,21 @@ def _send_otp_to_email(email, otp):
             logger.error("Resend returned HTTP status %s", response.status)
             return False
 
+    except urllib.error.HTTPError as e:
+     details = e.read().decode("utf-8", errors="replace")
+     logger.error(
+        "Resend API rejected email: HTTP %s - %s",
+        e.code,
+        details,
+    )
+     return False
+
     except Exception as e:
-        logger.error(
-            "Resend email delivery failed: %s",
-            type(e).__name__,
-        )
-        return False
+     logger.error(
+        "Resend email delivery failed: %s",
+        type(e).__name__,
+    )
+     return False
 
     """Send OTP via real email backend without exposing code or credentials in logs."""
     subject = "DonateBridge - Your Email Verification OTP"
