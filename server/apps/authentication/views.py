@@ -174,7 +174,74 @@ from django.core.mail import send_mail
 import logging
 logger = logging.getLogger(__name__)
 
+
 def _send_otp_to_email(email, otp):
+    """Send OTP using the Resend HTTPS API."""
+    api_key = os.environ.get("RESEND_API_KEY")
+    from_email = os.environ.get("RESEND_FROM_EMAIL")
+
+    if not api_key or not from_email:
+        logger.error("Resend email configuration is missing.")
+        return False
+
+    subject = "DonateBridge - Your Email Verification OTP"
+
+    message = (
+        "Hello,\n\n"
+        "Thank you for registering with DonateBridge.\n\n"
+        f"Your email verification OTP is: {otp}\n\n"
+        "This OTP is valid for 5 minutes.\n"
+        "Please do not share this OTP with anyone.\n\n"
+        "Regards,\nDonateBridge Team"
+    )
+
+    html_message = f"""
+    <div style="font-family: sans-serif; padding: 20px;">
+        <h2>DonateBridge</h2>
+        <h3>Email Verification</h3>
+        <p>Hello,</p>
+        <p>Thank you for registering with DonateBridge.</p>
+        <p>Your email verification OTP is:</p>
+        <h2 style="letter-spacing: 6px;">{otp}</h2>
+        <p>This OTP is valid for 5 minutes.</p>
+        <p>Please do not share this OTP with anyone.</p>
+        <p>Regards,<br>DonateBridge Team</p>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [email],
+        "subject": subject,
+        "text": message,
+        "html": html_message,
+    }
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if 200 <= response.status < 300:
+                return True
+
+            logger.error("Resend returned HTTP status %s", response.status)
+            return False
+
+    except Exception as e:
+        logger.error(
+            "Resend email delivery failed: %s",
+            type(e).__name__,
+        )
+        return False
+
     """Send OTP via real email backend without exposing code or credentials in logs."""
     subject = "DonateBridge - Your Email Verification OTP"
     message = (
